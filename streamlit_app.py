@@ -179,6 +179,10 @@ with st.sidebar:
                             })
                         count = services["vec"].upsert_vectors(sub_vectors, namespace=settings.PINECONE_NAMESPACE)
                         total_upserted += count
+                        
+                        # Dynamically update progress percentage on screen
+                        pct = min(98, int(50 + (total_upserted / len(chunks)) * 48))
+                        progress_bar.progress(pct, text=f"4/5 Embedding & Indexing: {total_upserted}/{len(chunks)} chunks ({pct}%)...")
 
                     # 4. Registry update
                     progress_bar.progress(100, text="5/5 Indexing completed!")
