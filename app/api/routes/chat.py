@@ -11,7 +11,13 @@ router = APIRouter(
     tags=["Chat & Retrieval"]
 )
 
-rag_service = RAGService()
+_rag_service = None
+
+def get_rag_service() -> RAGService:
+    global _rag_service
+    if _rag_service is None:
+        _rag_service = RAGService()
+    return _rag_service
 
 
 @router.post(
@@ -23,7 +29,8 @@ rag_service = RAGService()
 )
 def chat_endpoint(request: ChatRequest) -> ChatResponse:
     try:
-        result = rag_service.query(
+        service = get_rag_service()
+        result = service.query(
             question=request.question,
             top_k=request.top_k,
             namespace=request.namespace

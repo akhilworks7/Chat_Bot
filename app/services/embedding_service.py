@@ -1,7 +1,5 @@
-import torch
 from typing import List, Union
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 from app.config import settings
 from app.utils.logger import get_logger
@@ -24,15 +22,20 @@ class EmbeddingService:
         return cls._instance
 
     def __init__(self, model_name: str = None):
+        self.model_name = model_name or settings.EMBEDDING_MODEL_NAME
+
+    def _get_model(self):
         if self._model is None:
-            self.model_name = model_name or settings.EMBEDDING_MODEL_NAME
+            import torch
+            from sentence_transformers import SentenceTransformer
+
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             if self.device == "cpu":
-                # Limit threads on small free containers to prevent memory spikes
                 torch.set_num_threads(1)
-            logger.info(f"Loading embedding model '{self.model_name}' on device: {self.device}")
+            logger.info(f"Lazily loading embedding model '{self.model_name}' on device: {self.device}")
             self._model = SentenceTransformer(self.model_name, device=self.device)
             logger.info("Embedding model loaded successfully.")
+        return self._model
 
     @property
     def dimension(self) -> int:
@@ -48,12 +51,15 @@ class EmbeddingService:
         Embeds a list of document chunks into normalized vectors.
         """
         import gc
+        import torch
         if not chunks:
             return np.empty((0, self.dimension))
 
-        batch_size = batch_size or (128 if self.device == "cuda" else 16)
+        model = self._get_model()
+        device = getattr(self, "device", "cpu")
+        batch_size = batch_size or (128 if device == "cuda" else 16)
         with torch.inference_mode():
-            embeddings = self._model.encode(
+            embeddings = model.encode(
                 chunks,
                 batch_size=batch_size,
                 normalize_embeddings=True,
@@ -69,10 +75,13 @@ class EmbeddingService:
         if not query or not query.strip():
             raise ValueError("Query string cannot be empty")
 
-        embedding = self._model.encode(
-            query.strip(),
-            normalize_embeddings=True
-        )
+        import torch
+        model = self._get_model()
+        with torch.inference_mode():
+            embedding = model.encode(
+                query.strip(),
+                normalize_embeddings=True
+            )
 
         if hasattr(embedding, "tolist"):
             return embedding.tolist()

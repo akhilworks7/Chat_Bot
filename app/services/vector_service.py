@@ -22,12 +22,17 @@ class VectorService:
         return cls._instance
 
     def __init__(self):
-        if self._pc is None:
-            logger.info("Initializing Pinecone client...")
-            self._pc = Pinecone(api_key=settings.PINECONE_API_KEY)
-            self._ensure_index_exists()
+        pass
+
+    def _get_index(self):
+        if self._index is None:
+            if self._pc is None:
+                logger.info("Initializing Pinecone client...")
+                self._pc = Pinecone(api_key=settings.PINECONE_API_KEY)
+                self._ensure_index_exists()
             self._index = self._pc.Index(settings.PINECONE_INDEX_NAME)
             logger.info(f"Connected to Pinecone index: '{settings.PINECONE_INDEX_NAME}'")
+        return self._index
 
     def _ensure_index_exists(self):
         """
@@ -61,12 +66,13 @@ class VectorService:
         Upserts vector dictionaries into Pinecone in batches.
         Each vector format: {"id": str, "values": List[float], "metadata": Dict}
         """
+        index = self._get_index()
         target_namespace = namespace or settings.PINECONE_NAMESPACE
         total_upserted = 0
 
         for start in range(0, len(vectors), batch_size):
             batch = vectors[start : start + batch_size]
-            self._index.upsert(
+            index.upsert(
                 vectors=batch,
                 namespace=target_namespace
             )
@@ -91,6 +97,7 @@ class VectorService:
         """
         Searches Pinecone index and returns normalized document records.
         """
+        index = self._get_index()
         target_k = top_k or settings.TOP_K
         target_namespace = namespace or settings.PINECONE_NAMESPACE
 
@@ -104,7 +111,7 @@ class VectorService:
         if filter_dict:
             query_params["filter"] = filter_dict
 
-        raw_results = self._index.query(**query_params)
+        raw_results = index.query(**query_params)
 
         documents = []
         for match in raw_results.get("matches", []):
@@ -124,7 +131,8 @@ class VectorService:
         """
         Retrieves Pinecone index description and vector statistics.
         """
-        stats = self._index.describe_index_stats()
+        index = self._get_index()
+        stats = index.describe_index_stats()
         
         namespaces_dict = {}
         raw_namespaces = getattr(stats, "namespaces", None) or (stats.get("namespaces") if isinstance(stats, dict) else {})
@@ -150,9 +158,10 @@ class VectorService:
         if not vector_ids:
             return []
 
+        index = self._get_index()
         target_namespace = namespace or settings.PINECONE_NAMESPACE
         try:
-            fetch_res = self._index.fetch(ids=vector_ids, namespace=target_namespace)
+            fetch_res = index.fetch(ids=vector_ids, namespace=target_namespace)
             raw_vectors = getattr(fetch_res, "vectors", {}) or (fetch_res.get("vectors", {}) if isinstance(fetch_res, dict) else {})
 
             records = []
@@ -181,6 +190,7 @@ class VectorService:
         Deletes all vectors belonging to a source document from Pinecone.
         Executes ID deletion and metadata filter deletion to guarantee complete removal.
         """
+        index = self._get_index()
         target_namespace = namespace or settings.PINECONE_NAMESPACE
         deleted_count = 0
 
@@ -189,7 +199,7 @@ class VectorService:
             for start in range(0, len(vector_ids), 1000):
                 batch_ids = vector_ids[start : start + 1000]
                 try:
-                    self._index.delete(ids=batch_ids, namespace=target_namespace)
+                    index.delete(ids=batch_ids, namespace=target_namespace)
                     deleted_count += len(batch_ids)
                 except Exception as e:
                     logger.warning(f"Error deleting batch IDs from Pinecone: {e}")
@@ -197,7 +207,7 @@ class VectorService:
 
         # 2. Also execute metadata filter delete to catch all vectors for this source
         try:
-            self._index.delete(
+            index.delete(
                 filter={"source": {"$eq": source_name}},
                 namespace=target_namespace
             )
@@ -205,7 +215,7 @@ class VectorService:
         except Exception as e:
             # Fallback filter format for some Pinecone index configurations
             try:
-                self._index.delete(
+                index.delete(
                     filter={"source": source_name},
                     namespace=target_namespace
                 )

@@ -18,22 +18,13 @@ logger = get_logger("main")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Application lifespan manager. Preloads the embedding model and establishes Pinecone index connection.
+    Application lifespan manager.
     """
     logger.info("==================================================")
     logger.info(f"Starting RAG Chatbot API (v1.0.0)...")
-    logger.info(f"Using Pinecone Index: {settings.PINECONE_INDEX_NAME} (ns: {settings.PINECONE_NAMESPACE})")
-    logger.info(f"Using Groq Model: {settings.GROQ_MODEL}")
-    logger.info(f"Using Embedding Model: {settings.EMBEDDING_MODEL_NAME}")
+    logger.info(f"Pinecone Index: {settings.PINECONE_INDEX_NAME} (ns: {settings.PINECONE_NAMESPACE})")
+    logger.info(f"Groq Model: {settings.GROQ_MODEL}")
     logger.info("==================================================")
-
-    # Initialize singletons on startup
-    try:
-        EmbeddingService()
-        VectorService()
-        logger.info("✅ Services successfully initialized.")
-    except Exception as e:
-        logger.warning(f"Startup initialization notice: {e}")
 
     yield
 

@@ -27,11 +27,20 @@ router = APIRouter(
     tags=["Documents & Ingestion"]
 )
 
-document_service = DocumentService()
-chunking_service = ChunkingService()
-embedding_service = EmbeddingService()
-vector_service = VectorService()
-registry_service = DocumentRegistryService()
+def get_document_service() -> DocumentService:
+    return DocumentService()
+
+def get_chunking_service() -> ChunkingService:
+    return ChunkingService()
+
+def get_embedding_service() -> EmbeddingService:
+    return EmbeddingService()
+
+def get_vector_service() -> VectorService:
+    return VectorService()
+
+def get_registry_service() -> DocumentRegistryService:
+    return DocumentRegistryService()
 
 
 def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
@@ -42,13 +51,19 @@ def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
     filename = Path(file_path).name
     file_size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
 
+    doc_svc = get_document_service()
+    chunk_svc = get_chunking_service()
+    embed_svc = get_embedding_service()
+    vec_svc = get_vector_service()
+    reg_svc = get_registry_service()
+
     logger.info(f"Starting ingestion pipeline for {file_path} into namespace '{namespace}'")
 
     # 1. Text extraction (with searchability check / OCR)
-    text = document_service.extract_text(file_path)
+    text = doc_svc.extract_text(file_path)
 
     # 2. Chunking
-    chunks = chunking_service.split_text(text)
+    chunks = chunk_svc.split_text(text)
     if not chunks:
         raise ValueError("No text content could be extracted from the document.")
 
@@ -62,7 +77,7 @@ def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
     batch_chunk_size = 40
     for start_idx in range(0, len(chunks), batch_chunk_size):
         sub_chunks = chunks[start_idx:start_idx + batch_chunk_size]
-        sub_embeddings = embedding_service.embed_documents(sub_chunks, show_progress_bar=False)
+        sub_embeddings = embed_svc.embed_documents(sub_chunks, show_progress_bar=False)
         
         sub_vectors = []
         for i, (chunk, embedding) in enumerate(zip(sub_chunks, sub_embeddings)):
@@ -79,7 +94,7 @@ def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
                 }
             })
         
-        count = vector_service.upsert_vectors(sub_vectors, namespace=namespace)
+        count = vec_svc.upsert_vectors(sub_vectors, namespace=namespace)
         total_upserted += count
         del sub_chunks, sub_embeddings, sub_vectors
         gc.collect()
@@ -87,7 +102,7 @@ def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
     elapsed = round(time.time() - start_time, 2)
 
     # 4. Save in document registry
-    registry_service.register_document(
+    reg_svc.register_document(
         filename=filename,
         file_size_bytes=file_size,
         total_chunks=len(chunks),
@@ -117,7 +132,8 @@ def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
     description="Returns a list of all documents currently tracked in the system."
 )
 def list_documents() -> DocumentListResponse:
-    docs = registry_service.get_all_documents()
+    reg_svc = get_registry_service()
+    docs = reg_svc.get_all_documents()
     return DocumentListResponse(
         total_documents=len(docs),
         documents=[DocumentItem(**d) for d in docs]
@@ -193,22 +209,26 @@ def ingest_local_document(request: IngestLocalRequest) -> IngestResponse:
 def delete_document(document_name: str, namespace: str = settings.PINECONE_NAMESPACE) -> DeleteResponse:
     logger.info(f"Initiating deletion for document: '{document_name}' in namespace '{namespace}'")
 
+    reg_svc = get_registry_service()
+    vec_svc = get_vector_service()
+    doc_svc = get_document_service()
+
     # 1. Retrieve registered vector IDs if tracked
-    doc_info = registry_service.get_document(document_name)
+    doc_info = reg_svc.get_document(document_name)
     vector_ids = doc_info.get("vector_ids", []) if doc_info else []
 
     # 2. Delete vectors from Pinecone (by vector IDs and metadata filter)
-    deleted_vectors_count = vector_service.delete_by_source(
+    deleted_vectors_count = vec_svc.delete_by_source(
         source_name=document_name,
         vector_ids=vector_ids,
         namespace=namespace
     )
 
     # 3. Delete physical files from disk
-    files_deleted = document_service.delete_document_files(document_name)
+    files_deleted = doc_svc.delete_document_files(document_name)
 
     # 4. Remove from registry
-    registry_service.remove_document(document_name)
+    reg_svc.remove_document(document_name)
 
     logger.info(
         f"Document '{document_name}' deleted successfully. Vectors purged: {deleted_vectors_count}. Files removed: {files_deleted}"
@@ -232,7 +252,8 @@ def delete_document(document_name: str, namespace: str = settings.PINECONE_NAMES
 )
 def get_index_statistics() -> IndexStatsResponse:
     try:
-        stats = vector_service.get_stats()
+        vec_svc = get_vector_service()
+        stats = vec_svc.get_stats()
         return IndexStatsResponse(**stats)
     except Exception as e:
         logger.error(f"Failed to fetch index stats: {str(e)}", exc_info=True)
