@@ -13,7 +13,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Load secrets from Streamlit Cloud into environment if available
+# Load secrets from Streamlit Cloud into environment and settings if available
 if hasattr(st, "secrets"):
     for key in ["PINECONE_API_KEY", "GROQ_API_KEY", "PINECONE_INDEX_NAME", "PINECONE_ENVIRONMENT", "PINECONE_CLOUD", "PINECONE_NAMESPACE", "GROQ_MODEL"]:
         if key in st.secrets:
@@ -26,6 +26,16 @@ os.makedirs("output", exist_ok=True)
 
 # Import RAG services
 from app.config import settings
+
+# Explicitly override settings from st.secrets if present
+if hasattr(st, "secrets"):
+    if "PINECONE_API_KEY" in st.secrets:
+        settings.PINECONE_API_KEY = str(st.secrets["PINECONE_API_KEY"])
+    if "GROQ_API_KEY" in st.secrets:
+        settings.GROQ_API_KEY = str(st.secrets["GROQ_API_KEY"])
+    if "PINECONE_INDEX_NAME" in st.secrets:
+        settings.PINECONE_INDEX_NAME = str(st.secrets["PINECONE_INDEX_NAME"])
+
 from app.services.rag_service import RAGService
 from app.services.document_service import DocumentService
 from app.services.chunking_service import ChunkingService
