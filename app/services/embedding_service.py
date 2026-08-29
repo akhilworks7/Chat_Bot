@@ -29,9 +29,10 @@ class EmbeddingService:
             import torch
             from sentence_transformers import SentenceTransformer
 
+            import os
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
             if self.device == "cpu":
-                torch.set_num_threads(1)
+                torch.set_num_threads(min(4, os.cpu_count() or 2))
             logger.info(f"Lazily loading embedding model '{self.model_name}' on device: {self.device}")
             self._model = SentenceTransformer(self.model_name, device=self.device)
             logger.info("Embedding model loaded successfully.")

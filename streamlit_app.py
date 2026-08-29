@@ -160,7 +160,7 @@ with st.sidebar:
                     
                     total_upserted = 0
                     all_vector_ids = []
-                    batch_chunk_size = 40
+                    batch_chunk_size = 100
                     
                     for start_idx in range(0, len(chunks), batch_chunk_size):
                         sub_chunks = chunks[start_idx:start_idx + batch_chunk_size]
