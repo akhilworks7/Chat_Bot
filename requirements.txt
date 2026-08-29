@@ -14,3 +14,4 @@ pymupdf>=1.24.0
 ocrmypdf>=16.0.0
 tqdm>=4.66.0
 colorlog>=6.8.0
+streamlit>=1.32.0
