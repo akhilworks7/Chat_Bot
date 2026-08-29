@@ -3,8 +3,6 @@ import time
 from pathlib import Path
 from typing import Optional
 import pymupdf
-import ocrmypdf
-import opendataloader_pdf
 
 from app.config import settings
 from app.utils.logger import get_logger
@@ -56,22 +54,26 @@ class DocumentService:
             base_name = Path(pdf_path).stem
             output_path = os.path.join(self.processed_dir, f"{base_name}_ocr.pdf")
 
-        logger.info(f"Starting OCRmyPDF for {pdf_path} -> {output_path}")
+        logger.info(f"Starting OCR for {pdf_path} -> {output_path}")
         start_time = time.time()
 
-        ocrmypdf.ocr(
-            pdf_path,
-            output_path,
-            skip_text=True,
-            deskew=False,
-            clean=False,
-            optimize=0,
-            language="eng",
-        )
-
-        elapsed = time.time() - start_time
-        logger.info(f"OCR completed in {elapsed:.2f} seconds")
-        return output_path
+        try:
+            import ocrmypdf
+            ocrmypdf.ocr(
+                pdf_path,
+                output_path,
+                skip_text=True,
+                deskew=False,
+                clean=False,
+                optimize=0,
+                language="eng",
+            )
+            elapsed = time.time() - start_time
+            logger.info(f"OCR completed in {elapsed:.2f} seconds")
+            return output_path
+        except Exception as e:
+            logger.warning(f"OCRmyPDF unavailable or failed ({e}). Returning original PDF.")
+            return pdf_path
 
     def prepare_pdf(self, pdf_path: str) -> str:
         """
@@ -113,15 +115,20 @@ class DocumentService:
             text = "\n\n".join(text_parts)
         except Exception as ex:
             logger.warning(f"Direct PyMuPDF extraction encountered an issue: {ex}. Trying opendataloader_pdf...")
-            opendataloader_pdf.convert(
-                input_path=[searchable_pdf],
-                output_dir=self.output_dir,
-                format="text"
-            )
-            if os.path.exists(txt_file_path):
-                with open(txt_file_path, "r", encoding="utf-8") as f:
-                    text = f.read()
-            else:
+            try:
+                import opendataloader_pdf
+                opendataloader_pdf.convert(
+                    input_path=[searchable_pdf],
+                    output_dir=self.output_dir,
+                    format="text"
+                )
+                if os.path.exists(txt_file_path):
+                    with open(txt_file_path, "r", encoding="utf-8") as f:
+                        text = f.read()
+                else:
+                    raise ex
+            except Exception as e2:
+                logger.error(f"Fallback text extraction also failed: {e2}")
                 raise ex
 
         with open(txt_file_path, "w", encoding="utf-8") as f:
