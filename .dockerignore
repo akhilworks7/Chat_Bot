@@ -1,0 +1,10 @@
+chat_bot/
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.vscode/
+test_with_all_mimiLM.ipynb
+.env
