@@ -8,6 +8,7 @@ pinecone>=9.0.0
 groq>=0.11.0
 sentence-transformers>=3.0.0
 torch>=2.0.0
+torchvision>=0.17.0
 langchain-text-splitters>=0.2.0
 opendataloader-pdf>=2.5.0
 pymupdf>=1.24.0

@@ -42,6 +42,9 @@ from app.services.chunking_service import ChunkingService
 from app.services.embedding_service import EmbeddingService
 from app.services.vector_service import VectorService
 from app.services.registry_service import DocumentRegistryService
+from app.utils.logger import get_logger
+
+logger = get_logger("streamlit_app")
 
 # Custom CSS for rich modern aesthetics
 st.markdown("""
@@ -180,9 +183,10 @@ with st.sidebar:
                         count = services["vec"].upsert_vectors(sub_vectors, namespace=settings.PINECONE_NAMESPACE)
                         total_upserted += count
                         
-                        # Dynamically update progress percentage on screen
+                        # Dynamically update progress percentage on screen and in logs
                         pct = min(98, int(50 + (total_upserted / len(chunks)) * 48))
                         progress_bar.progress(pct, text=f"4/5 Embedding & Indexing: {total_upserted}/{len(chunks)} chunks ({pct}%)...")
+                        logger.info(f"Indexing progress: {total_upserted}/{len(chunks)} chunks ({pct}%) for '{uploaded_file.name}'")
 
                     # 4. Registry update
                     progress_bar.progress(100, text="5/5 Indexing completed!")

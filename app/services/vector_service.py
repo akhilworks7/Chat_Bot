@@ -77,7 +77,7 @@ class VectorService:
                 namespace=target_namespace
             )
             total_upserted += len(batch)
-            logger.info(f"Upserted {total_upserted}/{len(vectors)} vectors into namespace '{target_namespace}'")
+            logger.info(f"Successfully upserted batch of {len(batch)} vectors into namespace '{target_namespace}'")
 
         return total_upserted
 
