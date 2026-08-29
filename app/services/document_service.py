@@ -90,26 +90,46 @@ class DocumentService:
 
     def extract_text(self, pdf_path: str) -> str:
         """
-        Extract text from a PDF using OpenDataLoader.
-        Returns the extracted plain text string.
+        Extract text from a PDF using lightweight PyMuPDF streaming (low memory)
+        with OpenDataLoader / OCR fallback.
         """
+        import gc
         searchable_pdf = self.prepare_pdf(pdf_path)
         logger.info(f"Extracting text from: {searchable_pdf} into {self.output_dir}")
-
-        opendataloader_pdf.convert(
-            input_path=[searchable_pdf],
-            output_dir=self.output_dir,
-            format="text"
-        )
 
         base_name = Path(searchable_pdf).stem
         txt_file_path = os.path.join(self.output_dir, f"{base_name}.txt")
 
-        if not os.path.exists(txt_file_path):
-            raise FileNotFoundError(f"Extracted text file was not found at: {txt_file_path}")
+        # High efficiency, low-RAM streaming extraction via PyMuPDF
+        text_parts = []
+        try:
+            doc = pymupdf.open(searchable_pdf)
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                page_text = page.get_text("text")
+                if page_text:
+                    text_parts.append(page_text)
+            doc.close()
+            text = "\n\n".join(text_parts)
+        except Exception as ex:
+            logger.warning(f"Direct PyMuPDF extraction encountered an issue: {ex}. Trying opendataloader_pdf...")
+            opendataloader_pdf.convert(
+                input_path=[searchable_pdf],
+                output_dir=self.output_dir,
+                format="text"
+            )
+            if os.path.exists(txt_file_path):
+                with open(txt_file_path, "r", encoding="utf-8") as f:
+                    text = f.read()
+            else:
+                raise ex
 
-        with open(txt_file_path, "r", encoding="utf-8") as f:
-            text = f.read()
+        with open(txt_file_path, "w", encoding="utf-8") as f:
+            f.write(text)
+
+        # Force garbage collection to keep RAM minimal on cloud free tiers
+        del text_parts
+        gc.collect()
 
         logger.info(f"Successfully extracted {len(text)} characters from {pdf_path}")
         return text

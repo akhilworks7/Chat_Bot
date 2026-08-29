@@ -52,49 +52,58 @@ def _run_ingestion_pipeline(file_path: str, namespace: str) -> IngestResponse:
     if not chunks:
         raise ValueError("No text content could be extracted from the document.")
 
-    # 3. Generate embeddings
-    embeddings = embedding_service.embed_documents(chunks, show_progress_bar=False)
-
-    # 4. Prepare vector records
-    vectors = []
-    vector_ids = []
+    # 3. Generate embeddings in batches and stream-upsert to Pinecone
+    import gc
     base_id = Path(filename).stem.replace(" ", "_")
+    total_upserted = 0
+    all_vector_ids = []
+    
+    # Process in chunks of 40 to stay well under 512MB RAM
+    batch_chunk_size = 40
+    for start_idx in range(0, len(chunks), batch_chunk_size):
+        sub_chunks = chunks[start_idx:start_idx + batch_chunk_size]
+        sub_embeddings = embedding_service.embed_documents(sub_chunks, show_progress_bar=False)
+        
+        sub_vectors = []
+        for i, (chunk, embedding) in enumerate(zip(sub_chunks, sub_embeddings)):
+            global_chunk_idx = start_idx + i
+            v_id = f"{base_id}_chunk_{global_chunk_idx}"
+            all_vector_ids.append(v_id)
+            sub_vectors.append({
+                "id": v_id,
+                "values": embedding.tolist() if hasattr(embedding, "tolist") else embedding,
+                "metadata": {
+                    "text": chunk,
+                    "chunk_id": global_chunk_idx,
+                    "source": filename
+                }
+            })
+        
+        count = vector_service.upsert_vectors(sub_vectors, namespace=namespace)
+        total_upserted += count
+        del sub_chunks, sub_embeddings, sub_vectors
+        gc.collect()
 
-    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-        v_id = f"{base_id}_chunk_{i}"
-        vector_ids.append(v_id)
-        vectors.append({
-            "id": v_id,
-            "values": embedding.tolist() if hasattr(embedding, "tolist") else embedding,
-            "metadata": {
-                "text": chunk,
-                "chunk_id": i,
-                "source": filename
-            }
-        })
-
-    # 5. Batch upsert to Pinecone
-    upserted_count = vector_service.upsert_vectors(vectors, namespace=namespace)
     elapsed = round(time.time() - start_time, 2)
 
-    # 6. Save in document registry
+    # 4. Save in document registry
     registry_service.register_document(
         filename=filename,
         file_size_bytes=file_size,
         total_chunks=len(chunks),
-        vector_ids=vector_ids,
+        vector_ids=all_vector_ids,
         namespace=namespace
     )
 
     logger.info(
-        f"Ingestion successful for {filename}: {len(chunks)} chunks, {upserted_count} vectors indexed in {elapsed}s"
+        f"Ingestion successful for {filename}: {len(chunks)} chunks, {total_upserted} vectors indexed in {elapsed}s"
     )
 
     return IngestResponse(
         status="success",
         source=filename,
         chunks_created=len(chunks),
-        vectors_upserted=upserted_count,
+        vectors_upserted=total_upserted,
         namespace=namespace,
         time_taken_seconds=elapsed
     )

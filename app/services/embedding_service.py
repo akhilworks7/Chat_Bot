@@ -27,6 +27,9 @@ class EmbeddingService:
         if self._model is None:
             self.model_name = model_name or settings.EMBEDDING_MODEL_NAME
             self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            if self.device == "cpu":
+                # Limit threads on small free containers to prevent memory spikes
+                torch.set_num_threads(1)
             logger.info(f"Loading embedding model '{self.model_name}' on device: {self.device}")
             self._model = SentenceTransformer(self.model_name, device=self.device)
             logger.info("Embedding model loaded successfully.")
@@ -44,16 +47,19 @@ class EmbeddingService:
         """
         Embeds a list of document chunks into normalized vectors.
         """
+        import gc
         if not chunks:
             return np.empty((0, self.dimension))
 
-        batch_size = batch_size or (128 if self.device == "cuda" else settings.EMBEDDING_BATCH_SIZE)
-        embeddings = self._model.encode(
-            chunks,
-            batch_size=batch_size,
-            normalize_embeddings=True,
-            show_progress_bar=show_progress_bar
-        )
+        batch_size = batch_size or (128 if self.device == "cuda" else 16)
+        with torch.inference_mode():
+            embeddings = self._model.encode(
+                chunks,
+                batch_size=batch_size,
+                normalize_embeddings=True,
+                show_progress_bar=show_progress_bar
+            )
+        gc.collect()
         return embeddings
 
     def embed_query(self, query: str) -> List[float]:
