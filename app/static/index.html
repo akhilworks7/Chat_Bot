@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DocuMind RAG Assistant</title>
+  
+  <!-- Modern Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  
+  <!-- Markdown Renderer -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Top App Navigation -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>DocuMind <span>RAG</span></h1>
+      </div>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <nav class="nav-tabs" role="tablist">
+      <button class="tab-btn active" id="tabBtnDocuments" data-tab="documents" role="tab" aria-selected="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="16" y1="13" x2="8" y2="13"></line>
+          <line x1="16" y1="17" x2="8" y2="17"></line>
+          <polyline points="10 9 9 9 8 9"></polyline>
+        </svg>
+        <span>Documents</span>
+        <span class="badge" id="docCountBadge">0</span>
+      </button>
+
+      <button class="tab-btn" id="tabBtnChatbot" data-tab="chatbot" role="tab" aria-selected="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        <span>Chatbot</span>
+      </button>
+    </nav>
+
+    <!-- Header Status Indicator & Clear Chat Action -->
+    <div class="header-status">
+      <div class="status-pill connected" id="systemStatus">
+        <span class="status-dot"></span>
+        <span class="status-label">Pinecone Connected</span>
+      </div>
+      <button class="btn-icon-subtle" id="btnClearChat" title="Clear chat" aria-label="Clear chat">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+          <line x1="10" y1="11" x2="10" y2="17"></line>
+          <line x1="14" y1="11" x2="14" y2="17"></line>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="app-main">
+
+    <!-- ==================================================== -->
+    <!-- TAB 1: DOCUMENTS VIEW                                -->
+    <!-- ==================================================== -->
+    <section class="tab-pane active" id="paneDocuments" role="tabpanel">
+      <div class="documents-container">
+        
+        <!-- Metrics Bar -->
+        <div class="metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon doc-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Total Documents</span>
+              <h3 class="metric-value" id="statTotalDocs">0</h3>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon vector-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M3 12h3m12 0h3M12 3v3m0 12v3M5.6 5.6l2.1 2.1m8.6 8.6l2.1 2.1M5.6 18.4l2.1-2.1m8.6-8.6l2.1-2.1"></path></svg>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Indexed Vectors</span>
+              <h3 class="metric-value" id="statTotalVectors">0</h3>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon embed-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">Embedding Model</span>
+              <h4 class="metric-subvalue" title="all-MiniLM-L6-v2">all-MiniLM-L6-v2</h4>
+              <span class="metric-dim">384 Dimensions</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon llm-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 0 1 10 10c0 5.523-4.477 10-10 10S2 17.523 2 12 6.477 2 12 2z"></path><path d="m9 12 2 2 4-4"></path></svg>
+            </div>
+            <div class="metric-info">
+              <span class="metric-label">LLM Engine</span>
+              <h4 class="metric-subvalue" id="statLLMModel">openai/gpt-oss-120b</h4>
+              <span class="metric-dim">Groq API</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Upload Box Section -->
+        <div class="section-card upload-section">
+          <div class="section-header">
+            <h2>Upload Documents</h2>
+            <p>Upload PDF documents to automatically extract, chunk, embed, and store in Pinecone.</p>
+          </div>
+
+          <div class="dropzone" id="dropzone">
+            <input type="file" id="fileInput" accept=".pdf" class="file-input" hidden>
+            <div class="dropzone-content">
+              <div class="upload-illustration">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+              </div>
+              <h3>Drag & drop your PDF here</h3>
+              <p>Supports standard searchable PDFs as well as scanned documents with OCR</p>
+              <button type="button" class="btn btn-primary" id="btnBrowse">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                Browse PDF File
+              </button>
+            </div>
+          </div>
+
+          <!-- Live Ingestion Progress Container -->
+          <div class="upload-progress-container hidden" id="uploadProgressBox">
+            <div class="progress-header">
+              <div class="progress-file-info">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                <span class="filename" id="progressFileName">document.pdf</span>
+              </div>
+              <span class="progress-status-badge" id="progressStageBadge">Processing...</span>
+            </div>
+            
+            <div class="progress-bar-wrapper">
+              <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            
+            <div class="progress-steps" id="progressSteps">
+              <div class="step-item active" id="stepUpload"><span class="step-num">1</span> Uploading</div>
+              <div class="step-item" id="stepExtract"><span class="step-num">2</span> OCR / Extract</div>
+              <div class="step-item" id="stepChunk"><span class="step-num">3</span> Chunking</div>
+              <div class="step-item" id="stepEmbed"><span class="step-num">4</span> Embedding</div>
+              <div class="step-item" id="stepIndex"><span class="step-num">5</span> Pinecone Index</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Document Inventory Table -->
+        <div class="section-card documents-list-section">
+          <div class="section-header space-between">
+            <div>
+              <h2>Indexed Documents</h2>
+              <p>All documents currently indexed in Pinecone and queryable by the chatbot.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btnRefreshDocs" title="Refresh document list">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+              Refresh
+            </button>
+          </div>
+
+          <div class="table-container">
+            <table class="documents-table">
+              <thead>
+                <tr>
+                  <th>Document Name</th>
+                  <th>File Size</th>
+                  <th>Total Chunks</th>
+                  <th>Namespace</th>
+                  <th>Uploaded Date</th>
+                  <th>Status</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="documentsTableBody">
+                <!-- Injected via app.js -->
+              </tbody>
+            </table>
+
+            <!-- Empty State -->
+            <div class="empty-state hidden" id="emptyDocsState">
+              <div class="empty-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+              </div>
+              <h3>No documents indexed yet</h3>
+              <p>Upload a PDF document above to start indexing and querying your knowledge base.</p>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================================================== -->
+    <!-- TAB 2: CHATBOT VIEW                                  -->
+    <!-- ==================================================== -->
+    <section class="tab-pane" id="paneChatbot" role="tabpanel">
+      <div class="chat-container">
+
+        <!-- Chat Messages Scroll Area (Unconstrained height, smooth scrolling) -->
+        <div class="chat-messages" id="chatMessages">
+          
+          <!-- Welcome Screen (shown when chat is empty) -->
+          <div class="chat-welcome" id="chatWelcome">
+            <div class="welcome-badge">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+              Context-Aware Document Intelligence
+            </div>
+            <h2>How can I help you today?</h2>
+            <p>Ask any question related to your uploaded documents. Answers are strictly grounded with source citations.</p>
+
+            <div class="prompt-suggestions">
+              <span class="suggestion-title">Suggested questions:</span>
+              <div class="suggestion-chips">
+                <button class="chip" data-question="What is the definition of Antiparkinson drugs?">
+                  "What is the definition of Antiparkinson drugs?"
+                </button>
+                <button class="chip" data-question="What is the precautions for the Barbiturates?">
+                  "What is the precautions for the Barbiturates?"
+                </button>
+                <button class="chip" data-question="Summarize the patient details in test2_ocr.pdf">
+                  "Summarize the patient details in test2_ocr.pdf"
+                </button>
+                <button class="chip" data-question="Who is the doctor who treated Meena Ramesh Patel?">
+                  "Who is the doctor who treated Meena Ramesh Patel?"
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Chat Input Footer (Fixed & accessible at bottom) -->
+        <div class="chat-input-wrapper">
+          <form class="chat-form" id="chatForm">
+            <div class="input-container">
+              <textarea 
+                id="chatInput" 
+                rows="1" 
+                placeholder="Ask anything about your documents..." 
+                autocomplete="off"
+                required></textarea>
+              
+              <button type="submit" class="btn-send" id="btnSend" title="Send message (Enter)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="22" y1="2" x2="11" y2="13"></line>
+                  <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                </svg>
+              </button>
+            </div>
+            <div class="input-hints">
+              <span>Press <strong>Enter</strong> to send, <strong>Shift + Enter</strong> for a new line</span>
+            </div>
+          </form>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Delete Document Confirmation Modal -->
+  <div class="modal-overlay hidden" id="deleteModal">
+    <div class="modal-card">
+      <div class="modal-icon danger">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+      </div>
+      <h3>Delete Document?</h3>
+      <p>Are you sure you want to delete <strong id="deleteDocName">document.pdf</strong>?</p>
+      <p class="modal-warning">⚠️ This will <strong>completely purge all corresponding vector embeddings</strong> from Pinecone and delete all local files. This action cannot be undone.</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btnCancelDelete">Cancel</button>
+        <button class="btn btn-danger" id="btnConfirmDelete">
+          <span class="btn-text">Yes, Delete Everything</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Clear Conversation Confirmation Modal -->
+  <div class="modal-overlay hidden" id="clearChatModal">
+    <div class="modal-card">
+      <div class="modal-icon warning">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+      </div>
+      <h3>Clear Conversation?</h3>
+      <p>Are you sure you want to clear your current conversation history?</p>
+      <div class="modal-actions">
+        <button class="btn btn-secondary" id="btnCancelClearChat">Cancel</button>
+        <button class="btn btn-danger" id="btnConfirmClearChat">Clear Messages</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
