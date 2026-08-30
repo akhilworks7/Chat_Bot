@@ -22,6 +22,7 @@ def render_documents_tab(user: dict):
     """
     Renders the document management tab: PDF upload, initial quota limit enforcement,
     celebratory BYOK prompt, indexing pipeline, and document deletion.
+    Fully responsive across mobile, tablet, and desktop viewports.
     """
     user_id = user["id"]
     doc_service = DocumentService()
@@ -48,25 +49,25 @@ def render_documents_tab(user: dict):
 
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     with col_m1:
-        st.metric(label="📄 Indexed Documents", value=f"{len(user_docs)}", delta="Unlimited" if is_byok else f"{used}/{limit} Free")
+        st.metric(label="📄 Indexed Docs", value=f"{len(user_docs)}", delta="Unlimited" if is_byok else f"{used}/{limit} Free")
     with col_m2:
-        st.metric(label="📦 Vector Chunks", value=f"{total_vectors:,}", delta=f"ns: user_{user_id}")
+        st.metric(label="📦 Vectors", value=f"{total_vectors:,}", delta=f"ns: user_{user_id}")
     with col_m3:
-        st.metric(label="💾 Storage Consumed", value=f"{total_storage_mb} MB", delta="Raw PDFs")
+        st.metric(label="💾 Storage", value=f"{total_storage_mb} MB", delta="Raw PDFs")
     with col_m4:
-        st.metric(label="⚡ Active Engine", value="BYOK" if is_byok else "Shared", delta=creds.get("groq_model", "LLaMA-3.3")[:14])
+        st.metric(label="⚡ Engine", value="BYOK" if is_byok else "Shared", delta=creds.get("groq_model", "LLaMA-3.3")[:12])
 
-    st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
+    st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
 
     # ----------------------------------------------------
     # SECTION 2: UPLOAD & INGESTION ZONE
     # ----------------------------------------------------
     if not allowed and not is_byok:
         st.markdown(f"""
-        <div style="background: linear-gradient(135deg, rgba(30, 58, 138, 0.45), rgba(88, 28, 135, 0.45)); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 16px; padding: 24px; margin: 12px 0 20px 0; text-align: center; box-shadow: 0 10px 36px rgba(168, 85, 247, 0.2);">
-            <div style="font-size: 2.4rem; margin-bottom: 6px;">🎉</div>
-            <h3 style="color: #f8fafc; margin-bottom: 6px; font-size: 1.4rem;">You've reached your free document limit!</h3>
-            <p style="color: #cbd5e1; max-width: 620px; margin: 0 auto 16px auto; font-size: 0.94rem; line-height: 1.6;">
+        <div style="background: linear-gradient(135deg, rgba(30, 58, 138, 0.45), rgba(88, 28, 135, 0.45)); border: 1px solid rgba(168, 85, 247, 0.5); border-radius: 16px; padding: 20px; margin: 10px 0 18px 0; text-align: center; box-shadow: 0 10px 36px rgba(168, 85, 247, 0.2);">
+            <div style="font-size: 2.2rem; margin-bottom: 4px;">🎉</div>
+            <h3 style="color: #f8fafc; margin-bottom: 6px; font-size: clamp(1.1rem, 3vw, 1.35rem);">You've reached your free document limit!</h3>
+            <p style="color: #cbd5e1; max-width: 600px; margin: 0 auto 14px auto; font-size: 0.90rem; line-height: 1.5;">
                 You have indexed <b>{used} of {limit}</b> free documents using our shared application pool.
                 Connect your personal <b>Pinecone</b> and <b>Groq</b> API keys in Settings to unlock unlimited document capacity.
             </p>
@@ -78,21 +79,21 @@ def render_documents_tab(user: dict):
             if st.button("🔑 Configure BYOK API Keys", use_container_width=True, type="primary"):
                 show_settings_dialog(user)
 
-        st.markdown("<hr style='margin: 20px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
+        st.markdown("<hr style='margin: 18px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
 
     else:
         # Ingestion Container
         with st.container():
             st.markdown("""
-            <div style="background: rgba(15, 23, 42, 0.55); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: 14px; padding: 18px 22px; margin-bottom: 16px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span style="font-size: 1.35rem;">📤</span>
-                        <span style="font-size: 1.08rem; font-weight: 700; color: #f8fafc;">Upload & Index Knowledge Documents</span>
+            <div style="background: rgba(15, 23, 42, 0.55); border: 1px dashed rgba(99, 102, 241, 0.35); border-radius: 14px; padding: 16px 18px; margin-bottom: 14px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; margin-bottom: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 1.25rem;">📤</span>
+                        <span style="font-size: 1.02rem; font-weight: 700; color: #f8fafc;">Upload & Index Knowledge Documents</span>
                     </div>
-                    <span style="font-size: 0.76rem; font-weight: 600; color: #a5b4fc; background: rgba(99, 102, 241, 0.18); border: 1px solid rgba(99, 102, 241, 0.3); padding: 3px 10px; border-radius: 20px;">PDF up to 200 MB</span>
+                    <span style="font-size: 0.72rem; font-weight: 600; color: #a5b4fc; background: rgba(99, 102, 241, 0.18); border: 1px solid rgba(99, 102, 241, 0.3); padding: 2px 8px; border-radius: 16px;">PDF up to 200 MB</span>
                 </div>
-                <div style="font-size: 0.85rem; color: #94a3b8; line-height: 1.5;">
+                <div style="font-size: 0.82rem; color: #94a3b8; line-height: 1.4;">
                     Upload PDF files to automatically extract text, generate 384-dimensional dense embeddings, and index into your isolated vector namespace.
                 </div>
             </div>
@@ -107,7 +108,7 @@ def render_documents_tab(user: dict):
             )
 
             if uploaded_files:
-                st.markdown(f"<div style='font-size: 0.9rem; color: #f8fafc; font-weight: 600; margin: 12px 0 8px 0;'>📁 Selected <b>{len(uploaded_files)}</b> document(s) ready for ingestion:</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size: 0.88rem; color: #f8fafc; font-weight: 600; margin: 10px 0 6px 0;'>📁 Selected <b>{len(uploaded_files)}</b> document(s) ready for ingestion:</div>", unsafe_allow_html=True)
 
                 if st.button("🚀 Start Indexing Pipeline", type="primary", use_container_width=True):
                     user_doc_dir = doc_service.get_user_doc_dir(user_id)
@@ -242,14 +243,14 @@ def render_documents_tab(user: dict):
     # ----------------------------------------------------
     # SECTION 3: INDEXED DOCUMENTS VAULT
     # ----------------------------------------------------
-    st.markdown("<hr style='margin: 24px 0 18px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
+    st.markdown("<hr style='margin: 20px 0 16px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
     
-    col_v_title, col_v_purge, col_v_search = st.columns([3.2, 1.8, 2.2], vertical_alignment="center")
+    col_v_title, col_v_purge, col_v_search = st.columns([3.5, 1.8, 2.2], vertical_alignment="center")
     with col_v_title:
-        st.markdown(f"### 📚 Knowledge Base Vault <span style='font-size:0.9rem; color:#94a3b8; font-weight:400;'>({len(user_docs)} files)</span>", unsafe_allow_html=True)
+        st.markdown(f"### 📚 Knowledge Vault <span style='font-size:0.85rem; color:#94a3b8; font-weight:400;'>({len(user_docs)} files)</span>", unsafe_allow_html=True)
     
     with col_v_purge:
-        if st.button("🧹 Purge Orphan Vectors", key="btn_purge_ns", use_container_width=True, help="Wipe stale vectors from your Pinecone namespace"):
+        if st.button("🧹 Purge Vectors", key="btn_purge_ns", use_container_width=True, help="Wipe stale vectors from your Pinecone namespace"):
             try:
                 vec_service.delete_namespace(
                     namespace=creds["namespace"],
@@ -270,16 +271,16 @@ def render_documents_tab(user: dict):
                 st.error(f"Namespace purge error: {e}")
 
     with col_v_search:
-        search_query = st.text_input("🔍 Search files", placeholder="Filter by document name...", label_visibility="collapsed")
+        search_query = st.text_input("🔍 Search files", placeholder="Filter documents...", label_visibility="collapsed")
 
     filtered_docs = [d for d in user_docs if search_query.lower() in d.file_name.lower()] if search_query else user_docs
 
     if not user_docs:
         st.markdown("""
-        <div style="background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 16px; padding: 36px 20px; text-align: center; margin: 16px 0;">
-            <div style="font-size: 2.6rem; margin-bottom: 8px;">📂</div>
-            <h4 style="color: #f8fafc; margin-bottom: 6px; font-size: 1.15rem;">No Documents Indexed Yet</h4>
-            <p style="color: #94a3b8; font-size: 0.9rem; max-width: 480px; margin: 0 auto;">
+        <div style="background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 14px; padding: 30px 16px; text-align: center; margin: 14px 0;">
+            <div style="font-size: 2.4rem; margin-bottom: 6px;">📂</div>
+            <h4 style="color: #f8fafc; margin-bottom: 4px; font-size: 1.1rem;">No Documents Indexed Yet</h4>
+            <p style="color: #94a3b8; font-size: 0.86rem; max-width: 480px; margin: 0 auto;">
                 Upload your first PDF document above to start indexing knowledge for the AI Chatbot.
             </p>
         </div>
@@ -289,29 +290,29 @@ def render_documents_tab(user: dict):
     else:
         for doc in filtered_docs:
             size_mb = round(doc.file_size / (1024 * 1024), 2)
-            created_str = doc.created_at.strftime("%b %d, %Y %H:%M") if doc.created_at else "N/A"
+            created_str = doc.created_at.strftime("%b %d, %Y") if doc.created_at else "N/A"
             is_doc_byok = doc.credential_mode == "byok"
             mode_badge = "🚀 BYOK" if is_doc_byok else "🟢 Shared"
             mode_style = "background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);" if is_doc_byok else "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);"
 
-            col_card_info, col_card_dl, col_card_del = st.columns([6.0, 0.7, 0.7], vertical_alignment="center")
+            col_card_info, col_card_dl, col_card_del = st.columns([5.2, 1.1, 1.1], vertical_alignment="center")
 
             with col_card_info:
                 st.markdown(f"""
-                <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 18px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);">
-                    <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="font-size: 0.96rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px;">
+                <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 12px 16px; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+                        <div style="font-size: 0.94rem; font-weight: 700; color: #f8fafc; display: flex; align-items: center; gap: 8px; word-break: break-word;">
                             <span>📄</span> {doc.file_name}
                         </div>
-                        <span style="{mode_style} font-size: 0.72rem; font-weight: 700; padding: 2px 10px; border-radius: 12px;">
+                        <span style="{mode_style} font-size: 0.70rem; font-weight: 700; padding: 2px 8px; border-radius: 12px;">
                             {mode_badge}
                         </span>
                     </div>
-                    <div style="display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; font-size: 0.78rem; color: #94a3b8;">
+                    <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; font-size: 0.76rem; color: #94a3b8;">
                         <span>📦 <b>{doc.vector_count}</b> chunks</span>
                         <span>💾 <b>{size_mb}</b> MB</span>
                         <span>📅 {created_str}</span>
-                        <span>🏷️ <code style="color: #cbd5e1; font-size: 0.72rem; background: rgba(30, 41, 59, 0.8); padding: 1px 6px; border-radius: 4px;">{doc.pinecone_namespace}</code></span>
+                        <span>🏷️ <code style="color: #cbd5e1; font-size: 0.70rem; background: rgba(30, 41, 59, 0.8); padding: 1px 5px; border-radius: 4px;">{doc.pinecone_namespace}</code></span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -322,7 +323,7 @@ def render_documents_tab(user: dict):
                     with open(doc.file_path, "rb") as f:
                         file_data = f.read()
                     st.download_button(
-                        label="📥",
+                        label="📥 Download",
                         data=file_data,
                         file_name=doc.file_name,
                         mime="application/pdf",
@@ -331,10 +332,10 @@ def render_documents_tab(user: dict):
                         use_container_width=True
                     )
                 else:
-                    st.button("📥", key=f"dl_disabled_{doc.id}", disabled=True, use_container_width=True)
+                    st.button("📥 N/A", key=f"dl_disabled_{doc.id}", disabled=True, use_container_width=True)
 
             with col_card_del:
-                if st.button("🗑️", key=f"del_doc_{doc.id}", help=f"Delete {doc.file_name}", use_container_width=True):
+                if st.button("🗑️ Delete", key=f"del_doc_{doc.id}", help=f"Delete {doc.file_name}", use_container_width=True):
                     # 1. Delete vectors from Pinecone using deterministic IDs
                     try:
                         vec_service.delete_document_vectors(

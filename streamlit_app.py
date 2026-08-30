@@ -68,9 +68,9 @@ from components import (
 from app.services.credential_service import CredentialService
 from app.services.audit_service import AuditService
 
-# ==========================================
-# MODERN LUXURY DARK THEME & GLASSMORPHISM DESIGN SYSTEM
-# ==========================================
+# ========================================================
+# RESPONSIVE CROSS-DEVICE DESIGN SYSTEM (Mobile, Tablet, Desktop)
+# ========================================================
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
@@ -80,6 +80,7 @@ st.markdown("""
         font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
         background-color: #0b0f19 !important;
         color: #f1f5f9 !important;
+        -webkit-tap-highlight-color: transparent;
     }
 
     /* Ambient Background Mesh */
@@ -125,7 +126,7 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Main Content Container Spacing */
+    /* Desktop Content Container Spacing */
     .block-container {
         padding-top: 1.25rem !important;
         padding-bottom: 3.5rem !important;
@@ -141,25 +142,32 @@ st.markdown("""
     }
     
     div[data-baseweb="tab-list"] {
-        gap: 8px !important;
+        gap: 6px !important;
         background: rgba(15, 23, 42, 0.6) !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 12px !important;
-        padding: 6px !important;
+        padding: 5px !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
         backdrop-filter: blur(12px) !important;
+        overflow-x: auto !important;
+        scrollbar-width: none !important;
+    }
+
+    div[data-baseweb="tab-list"]::-webkit-scrollbar {
+        display: none !important;
     }
 
     button[data-baseweb="tab"] {
         height: auto !important;
-        padding: 8px 18px !important;
+        padding: 8px 16px !important;
         font-family: 'Outfit', sans-serif !important;
         font-weight: 600 !important;
-        font-size: 0.9rem !important;
+        font-size: 0.88rem !important;
         border-radius: 8px !important;
         color: #94a3b8 !important;
         background: transparent !important;
         border: none !important;
+        white-space: nowrap !important;
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
     }
 
@@ -351,7 +359,7 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.65) !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
         border-radius: 14px !important;
-        padding: 16px 20px !important;
+        padding: 14px 16px !important;
         box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
         backdrop-filter: blur(12px);
         position: relative;
@@ -371,14 +379,14 @@ st.markdown("""
     }
 
     div[data-testid="stMetric"]:hover {
-        transform: translateY(-3px);
+        transform: translateY(-2px);
         border-color: rgba(99, 102, 241, 0.45) !important;
         box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
     }
 
     div[data-testid="stMetricLabel"] {
         font-family: 'Outfit', sans-serif !important;
-        font-size: 0.82rem !important;
+        font-size: 0.78rem !important;
         font-weight: 600 !important;
         color: #94a3b8 !important;
         text-transform: uppercase !important;
@@ -388,13 +396,13 @@ st.markdown("""
     div[data-testid="stMetricValue"] {
         font-family: 'Outfit', sans-serif !important;
         font-weight: 800 !important;
-        font-size: 1.85rem !important;
+        font-size: 1.65rem !important;
         color: #f8fafc !important;
         letter-spacing: -0.02em !important;
     }
 
     div[data-testid="stMetricDelta"] {
-        font-size: 0.78rem !important;
+        font-size: 0.76rem !important;
         font-weight: 600 !important;
     }
 
@@ -403,7 +411,7 @@ st.markdown("""
         background: rgba(15, 23, 42, 0.5) !important;
         border: 2px dashed rgba(99, 102, 241, 0.35) !important;
         border-radius: 16px !important;
-        padding: 24px 16px !important;
+        padding: 20px 14px !important;
         transition: all 0.25s ease !important;
     }
 
@@ -448,24 +456,25 @@ st.markdown("""
         border: 1px solid rgba(99, 102, 241, 0.35) !important;
         border-radius: 18px !important;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.15) !important;
-        padding: 24px !important;
+        padding: 20px !important;
+        max-width: 95vw !important;
     }
 
     /* Floating Scroll Buttons */
     .scroll-top-btn, .scroll-bottom-btn {
         position: fixed !important;
-        right: 28px !important;
+        right: 20px !important;
         z-index: 99999 !important;
         display: inline-flex !important;
         align-items: center !important;
         gap: 6px !important;
-        background: rgba(15, 23, 42, 0.85) !important;
+        background: rgba(15, 23, 42, 0.88) !important;
         border: 1px solid rgba(129, 140, 248, 0.4) !important;
         color: #e0e7ff !important;
         text-decoration: none !important;
-        padding: 8px 16px !important;
+        padding: 7px 14px !important;
         border-radius: 30px !important;
-        font-size: 0.82rem !important;
+        font-size: 0.78rem !important;
         font-weight: 700 !important;
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 16px rgba(99, 102, 241, 0.25) !important;
         backdrop-filter: blur(12px) !important;
@@ -474,11 +483,11 @@ st.markdown("""
     }
 
     .scroll-top-btn {
-        bottom: 86px !important;
+        bottom: 82px !important;
     }
 
     .scroll-bottom-btn {
-        top: 100px !important;
+        top: 90px !important;
     }
 
     .scroll-top-btn:hover, .scroll-bottom-btn:hover {
@@ -489,14 +498,10 @@ st.markdown("""
         box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5) !important;
     }
 
-    .scroll-top-btn:active, .scroll-bottom-btn:active {
-        transform: scale(0.97) !important;
-    }
-
     /* Custom Scrollbars */
     ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
+        width: 5px;
+        height: 5px;
     }
     ::-webkit-scrollbar-track {
         background: transparent;
@@ -507,6 +512,114 @@ st.markdown("""
     }
     ::-webkit-scrollbar-thumb:hover {
         background: rgba(255, 255, 255, 0.3);
+    }
+
+    /* ========================================================
+       MOBILE & TABLET RESPONSIVE MEDIA QUERIES
+       ======================================================== */
+    
+    /* Tablet Viewports (max-width: 992px) */
+    @media screen and (max-width: 992px) {
+        .block-container {
+            padding-top: 1rem !important;
+            padding-left: 1.25rem !important;
+            padding-right: 1.25rem !important;
+            padding-bottom: 3rem !important;
+        }
+
+        /* Allow metrics to wrap into 2 columns on tablet */
+        div[data-testid="stMetric"] {
+            margin-bottom: 8px !important;
+        }
+    }
+
+    /* Mobile Phones Viewports (max-width: 768px) */
+    @media screen and (max-width: 768px) {
+        .block-container {
+            padding-top: 0.75rem !important;
+            padding-left: 0.65rem !important;
+            padding-right: 0.65rem !important;
+            padding-bottom: 2.5rem !important;
+        }
+
+        /* Headings scale down gracefully on mobile */
+        h1 {
+            font-size: 1.75rem !important;
+        }
+        h2 {
+            font-size: 1.45rem !important;
+        }
+        h3 {
+            font-size: 1.2rem !important;
+        }
+        h4 {
+            font-size: 1.05rem !important;
+        }
+
+        /* Metric values smaller on mobile */
+        div[data-testid="stMetricValue"] {
+            font-size: 1.35rem !important;
+        }
+        div[data-testid="stMetricLabel"] {
+            font-size: 0.72rem !important;
+        }
+
+        /* Streamlit columns flex-wrap on mobile so they don't crush */
+        div[data-testid="stHorizontalBlock"] {
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+        }
+
+        /* Buttons on mobile take full width & comfortable touch targets */
+        div.stButton > button {
+            min-height: 2.6rem !important;
+            font-size: 0.85rem !important;
+            padding: 8px 12px !important;
+        }
+
+        /* Floating buttons position on mobile */
+        .scroll-top-btn, .scroll-bottom-btn {
+            right: 12px !important;
+            padding: 5px 10px !important;
+            font-size: 0.72rem !important;
+        }
+        .scroll-top-btn {
+            bottom: 74px !important;
+        }
+        .scroll-bottom-btn {
+            top: 70px !important;
+        }
+
+        /* Chat messages padding on mobile */
+        div[data-testid="stChatMessage"] {
+            padding: 10px 12px !important;
+            border-radius: 12px !important;
+            margin-bottom: 10px !important;
+            font-size: 0.92rem !important;
+        }
+
+        /* Card padding on mobile */
+        .stCard, .source-card, .glass-panel {
+            padding: 12px 14px !important;
+            border-radius: 12px !important;
+        }
+    }
+
+    /* Small Mobile Phones (max-width: 480px) */
+    @media screen and (max-width: 480px) {
+        .block-container {
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+        }
+
+        h1 {
+            font-size: 1.5rem !important;
+        }
+
+        /* Hide floating buttons on very small screens to avoid obstructing view */
+        .scroll-top-btn, .scroll-bottom-btn {
+            display: none !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -572,7 +685,3 @@ else:
 
     else:
         render_documents_tab(user)
-
-
-
-

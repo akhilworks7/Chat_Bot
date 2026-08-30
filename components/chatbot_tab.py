@@ -14,6 +14,7 @@ def render_chatbot_tab(user: dict):
     """
     Renders the conversational RAG chatbot tab with a stable fixed input box,
     real-time streaming responses, source citation cards, and friendly quota error handling.
+    Fully responsive across mobile, tablet, and desktop viewports.
     """
     user_id = user["id"]
     session_id = f"user_{user_id}_session"
@@ -41,13 +42,13 @@ def render_chatbot_tab(user: dict):
     # ----------------------------------------------------
     # HEADER & TOOLBAR
     # ----------------------------------------------------
-    col_t, col_model, col_b = st.columns([3.0, 1.5, 0.8], vertical_alignment="center")
+    col_t, col_model, col_b = st.columns([3.2, 1.6, 0.7], vertical_alignment="center")
     with col_t:
-        st.markdown("### 💬 AI Knowledge Assistant & Chit Chat")
+        st.markdown("### 💬 AI Knowledge Assistant")
         if user_docs:
-            st.caption(f"Grounded on **{len(user_docs)}** indexed document(s) with multi-turn memory + general intelligence.")
+            st.caption(f"Grounded on **{len(user_docs)}** indexed document(s) with multi-turn memory.")
         else:
-            st.caption("🤖 Conversational Assistant is ready. Upload PDFs in the **📄 Document Vault** to enable RAG document QA.")
+            st.caption("🤖 Conversational Assistant is ready. Upload PDFs in the **📄 Vault** for document QA.")
 
     with col_model:
         curr_idx = AVAILABLE_MODELS.index(st.session_state.selected_groq_model) if st.session_state.selected_groq_model in AVAILABLE_MODELS else 0
@@ -64,7 +65,7 @@ def render_chatbot_tab(user: dict):
             st.toast(f"Model switched to `{selected_model}`")
 
     with col_b:
-        if st.button("🧹 Clear", use_container_width=True, help="Clear current conversation history"):
+        if st.button("🧹", use_container_width=True, help="Clear conversation history"):
             with get_db() as db:
                 crud.clear_chat_history(db=db, user_id=user_id, session_id=session_id)
             st.toast("Chat history cleared.")
@@ -132,44 +133,44 @@ def render_chatbot_tab(user: dict):
         if not db_history:
             if user_docs:
                 st.markdown("""
-                <div style="background: rgba(15, 23, 42, 0.45); border: 1px dashed rgba(99, 102, 241, 0.25); border-radius: 16px; padding: 28px 20px; text-align: center; margin: 16px 0 20px 0;">
-                    <div style="font-size: 2.4rem; margin-bottom: 8px;">✨</div>
-                    <h4 style="color: #f8fafc; margin-bottom: 6px; font-size: 1.2rem;">How can I assist you today?</h4>
-                    <p style="color: #94a3b8; font-size: 0.9rem; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
+                <div style="background: rgba(15, 23, 42, 0.45); border: 1px dashed rgba(99, 102, 241, 0.25); border-radius: 14px; padding: 22px 16px; text-align: center; margin: 12px 0 16px 0;">
+                    <div style="font-size: 2.2rem; margin-bottom: 6px;">✨</div>
+                    <h4 style="color: #f8fafc; margin-bottom: 4px; font-size: 1.15rem;">How can I assist you today?</h4>
+                    <p style="color: #94a3b8; font-size: 0.88rem; max-width: 500px; margin: 0 auto 12px auto; line-height: 1.4;">
                         Ask questions about your uploaded documents, extract key insights, or have casual chit-chat anytime.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<div style='color: #94a3b8; font-size: 0.82rem; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #94a3b8; font-size: 0.78rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
                 col_s1, col_s2, col_s3 = st.columns(3)
                 with col_s1:
-                    if st.button("📋 Summarize all documents", use_container_width=True, key="sug_sum"):
+                    if st.button("📋 Summarize docs", use_container_width=True, key="sug_sum"):
                         st.session_state.pending_prompt = "Provide a comprehensive summary of the main topics in the uploaded documents."
                         st.rerun()
                 with col_s2:
-                    if st.button("🔍 What are the key takeaways?", use_container_width=True, key="sug_takeaways"):
+                    if st.button("🔍 Key takeaways", use_container_width=True, key="sug_takeaways"):
                         st.session_state.pending_prompt = "What are the most important key findings and takeaways from the documents?"
                         st.rerun()
                 with col_s3:
-                    if st.button("💬 How are you doing today?", use_container_width=True, key="sug_chitchat"):
+                    if st.button("💬 Chit chat", use_container_width=True, key="sug_chitchat"):
                         st.session_state.pending_prompt = "Hello DocuMind AI! How are you doing today?"
                         st.rerun()
             else:
                 st.markdown("""
-                <div style="background: rgba(15, 23, 42, 0.45); border: 1px dashed rgba(99, 102, 241, 0.25); border-radius: 16px; padding: 28px 20px; text-align: center; margin: 16px 0 20px 0;">
-                    <div style="font-size: 2.4rem; margin-bottom: 8px;">👋</div>
-                    <h4 style="color: #f8fafc; margin-bottom: 6px; font-size: 1.2rem;">Welcome to DocuMind AI!</h4>
-                    <p style="color: #94a3b8; font-size: 0.9rem; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
+                <div style="background: rgba(15, 23, 42, 0.45); border: 1px dashed rgba(99, 102, 241, 0.25); border-radius: 14px; padding: 22px 16px; text-align: center; margin: 12px 0 16px 0;">
+                    <div style="font-size: 2.2rem; margin-bottom: 6px;">👋</div>
+                    <h4 style="color: #f8fafc; margin-bottom: 4px; font-size: 1.15rem;">Welcome to DocuMind AI!</h4>
+                    <p style="color: #94a3b8; font-size: 0.88rem; max-width: 500px; margin: 0 auto 12px auto; line-height: 1.4;">
                         You can chit-chat with me casually or upload PDF documents in the <b>📄 Document Vault</b> for deep semantic analysis.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<div style='color: #94a3b8; font-size: 0.82rem; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #94a3b8; font-size: 0.78rem; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
                 col_s1, col_s2, col_s3 = st.columns(3)
                 with col_s1:
-                    if st.button("👋 Hello, who are you?", use_container_width=True, key="sug_intro"):
+                    if st.button("👋 Who are you?", use_container_width=True, key="sug_intro"):
                         st.session_state.pending_prompt = "Hello! Who are you and how can you help me?"
                         st.rerun()
                 with col_s2:
@@ -177,7 +178,7 @@ def render_chatbot_tab(user: dict):
                         st.session_state.pending_prompt = "What features and capabilities do you offer?"
                         st.rerun()
                 with col_s3:
-                    if st.button("📄 How do I upload documents?", use_container_width=True, key="sug_upload_help"):
+                    if st.button("📄 How to upload?", use_container_width=True, key="sug_upload_help"):
                         st.session_state.pending_prompt = "How do I upload and index my PDF documents in DocuMind?"
                         st.rerun()
 
@@ -195,7 +196,7 @@ def render_chatbot_tab(user: dict):
                                     st.markdown(f"""
                                     <div class="source-card">
                                         <span class="source-badge">📄 {s.get('source', 'Unknown')}</span> · <b>Chunk #{chunk_id}</b> · <i>Score: {score}%</i>
-                                        <p style="margin-top:6px; color:#cbd5e1; font-size:0.87rem; line-height:1.5;">{s.get('text', '')}</p>
+                                        <p style="margin-top:6px; color:#cbd5e1; font-size:0.85rem; line-height:1.5;">{s.get('text', '')}</p>
                                     </div>
                                     """, unsafe_allow_html=True)
                     except Exception:
@@ -290,7 +291,7 @@ def render_chatbot_tab(user: dict):
                                     st.markdown(f"""
                                     <div class="source-card">
                                         <span class="source-badge">📄 {s.get('source', 'Unknown')}</span> · <b>Chunk #{chunk_id}</b> · <i>Score: {score}%</i>
-                                        <p style="margin-top:6px; color:#cbd5e1; font-size:0.87rem; line-height:1.5;">{s.get('text', '')}</p>
+                                        <p style="margin-top:6px; color:#cbd5e1; font-size:0.85rem; line-height:1.5;">{s.get('text', '')}</p>
                                     </div>
                                     """, unsafe_allow_html=True)
                         else:
