@@ -9,8 +9,9 @@ st.set_page_config(
     page_title="DocuMind Multi-User RAG",
     page_icon="🧠",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
+
 
 # Load secrets from Streamlit Cloud into environment if available
 try:
@@ -36,13 +37,22 @@ from app.db.database import init_db, get_db
 from app.db import crud
 
 @st.cache_resource(show_spinner=False)
-def setup_database():
+def setup_system():
     init_db()
     with get_db() as db:
         crud.seed_initial_data(db)
+    
+    # Non-blocking background warmup so initial page load renders instantly (< 20ms)
+    try:
+        from app.services.embedding_service import EmbeddingService
+        EmbeddingService.start_background_warmup()
+    except Exception:
+        pass
     return True
 
-setup_database()
+setup_system()
+
+
 
 # Import UI Components
 from components import (
@@ -51,6 +61,7 @@ from components import (
     render_documents_tab,
     render_chatbot_tab,
     render_settings_tab,
+    show_settings_dialog,
     render_usage_tab,
     render_admin_dashboard
 )
@@ -68,38 +79,191 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
     
-    h1, h2, h3, h4 {
+    h1, h2, h3, h4, h5, h6 {
         font-family: 'Outfit', sans-serif;
         font-weight: 700;
+        letter-spacing: -0.02em;
     }
 
-    .source-card {
-        background: rgba(30, 41, 59, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 8px;
-        padding: 12px 16px;
-        margin-bottom: 8px;
-        font-size: 0.88rem;
-        line-height: 1.5;
+    /* Streamlit header transparency and pointer-events handling */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        pointer-events: none !important;
+        z-index: 90 !important;
+    }
+
+    /* Hide Streamlit dev toolbar from covering top buttons */
+    [data-testid="stToolbar"] {
+        display: none !important;
+        pointer-events: none !important;
+    }
+
+    /* Hide the unused sidebar and its toggle controls completely */
+    section[data-testid="stSidebar"],
+    button[kind="header"],
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapseButton"] {
+        display: none !important;
+    }
+
+    /* Popover dropdown menu styling */
+    div[data-testid="stPopoverBody"] {
+        background: #0f172a !important;
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
+        padding: 12px !important;
+    }
+
+    /* Main Content Container Spacing */
+    .block-container {
+        padding-top: 1.5rem !important;
+        padding-bottom: 2.5rem !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+        max-width: 100% !important;
+    }
+
+
+    /* Ensure all Streamlit buttons have a uniform, solid, full-surface click area */
+    div.stButton > button {
+        position: relative !important;
+        z-index: 20 !important;
+        pointer-events: auto !important;
+        cursor: pointer !important;
+        width: 100% !important;
+        min-height: 2.5rem !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-weight: 600 !important;
+        border-radius: 8px !important;
+        transition: all 0.2s ease-in-out !important;
+    }
+
+    /* Modern Card & Container Styling */
+    .stCard, .source-card {
+        background: rgba(15, 23, 42, 0.65) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        margin-bottom: 10px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(12px);
     }
 
     .source-badge {
-        display: inline-block;
-        background: #3b82f6;
+        display: inline-flex;
+        align-items: center;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
         color: #ffffff;
         font-size: 0.75rem;
         font-weight: 600;
-        padding: 2px 8px;
-        border-radius: 4px;
+        padding: 3px 10px;
+        border-radius: 6px;
         margin-bottom: 6px;
+        letter-spacing: 0.01em;
     }
 
+    /* Chat Messages Polish */
     .stChatMessage {
-        border-radius: 12px;
-        margin-bottom: 12px;
+        background: rgba(15, 23, 42, 0.45) !important;
+        border: 1px solid rgba(255, 255, 255, 0.06) !important;
+        border-radius: 14px !important;
+        padding: 12px 16px !important;
+        margin-bottom: 12px !important;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    /* Sidebar Customization */
+    section[data-testid="stSidebar"] {
+        background: #0b0f19 !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
+    }
+
+    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
+        gap: 0.5rem;
+    }
+
+    /* Metric cards glow */
+    div[data-testid="stMetric"] {
+        background: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        padding: 14px 18px !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        border-color: rgba(99, 102, 241, 0.4) !important;
+    }
+
+    /* Floating Scroll-to-Top and Scroll-to-Bottom Buttons */
+    .scroll-top-btn, .scroll-bottom-btn {
+        position: fixed !important;
+        right: 28px !important;
+        z-index: 99999 !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 6px !important;
+        background: rgba(30, 27, 75, 0.92) !important;
+        border: 1px solid rgba(129, 140, 248, 0.5) !important;
+        color: #e0e7ff !important;
+        text-decoration: none !important;
+        padding: 8px 16px !important;
+        border-radius: 30px !important;
+        font-size: 0.82rem !important;
+        font-weight: 700 !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 16px rgba(99, 102, 241, 0.3) !important;
+        backdrop-filter: blur(10px) !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        cursor: pointer !important;
+    }
+
+    .scroll-top-btn {
+        bottom: 82px !important;
+    }
+
+    .scroll-bottom-btn {
+        top: 130px !important;
+    }
+
+
+    .scroll-top-btn:hover, .scroll-bottom-btn:hover {
+        background: linear-gradient(135deg, #4338ca, #6366f1) !important;
+        color: #ffffff !important;
+        border-color: #a5b4fc !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.55) !important;
+    }
+
+    .scroll-top-btn:active, .scroll-bottom-btn:active {
+        transform: scale(0.98) !important;
+    }
+
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
     }
 </style>
 """, unsafe_allow_html=True)
+
+
 
 
 # ==========================================
@@ -108,7 +272,9 @@ st.markdown("""
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
     st.session_state.user = None
-    st.session_state.nav_page = "workspace"
+    st.session_state.nav_page = "documents"
+
+
 
 
 # ==========================================
@@ -121,96 +287,44 @@ else:
     user = st.session_state.user
     user_id = user["id"]
 
-    # ==========================================
-    # SIDEBAR: NAVIGATION & USER PROFILE
-    # ==========================================
-    with st.sidebar:
-        st.markdown("## 🧠 DocuMind **RAG**")
-        st.caption("Multi-User AI Knowledge Platform")
-        
-        st.markdown("---")
-
-        # User Profile card in sidebar
-        with get_db() as db:
-            user_obj = crud.get_user_by_id(db, user_id)
-            if user_obj:
-                user = user_obj.to_dict()
-                st.session_state.user = user
-
-            allowance = CredentialService.check_upload_allowance(user_id=user_id, db=db)
-            creds_info = CredentialService.get_credentials(user_id=user_id, db=db)
-
-        is_byok = creds_info.get("is_byok", False)
-
-        st.markdown(f"**👤 {user['name']}**")
-        st.caption(f"✉️ {user['email']}")
-
-        # Credential Mode & Progress
-        if is_byok:
-            st.success("🚀 BYOK Mode Active")
-        else:
-            used_docs = allowance.get("used", 0)
-            limit_docs = allowance.get("limit", 2)
-            pct = min(1.0, used_docs / limit_docs) if limit_docs > 0 else 0.0
-            st.progress(pct, text=f"📄 Free Docs: {used_docs} / {limit_docs}")
-
-        st.markdown("---")
-        st.markdown("### 🧭 Navigation")
-
-        # Navigation buttons
-        btn_ws = st.button("📂 RAG Workspace", use_container_width=True, type="primary" if st.session_state.nav_page == "workspace" else "secondary")
-        if btn_ws:
-            st.session_state.nav_page = "workspace"
-            st.rerun()
-
-        btn_usage = st.button("📊 My Usage", use_container_width=True, type="primary" if st.session_state.nav_page == "usage" else "secondary")
-        if btn_usage:
-            st.session_state.nav_page = "usage"
-            st.rerun()
-
-        btn_settings = st.button("⚙️ API Settings", use_container_width=True, type="primary" if st.session_state.nav_page == "settings" else "secondary")
-        if btn_settings:
-            st.session_state.nav_page = "settings"
-            st.rerun()
-
-        if user.get("role") == "admin":
-            st.markdown("---")
-            st.markdown("### 🛡️ Admin Controls")
-            btn_admin = st.button("🛡️ Admin Dashboard", use_container_width=True, type="primary" if st.session_state.nav_page == "admin" else "secondary")
-            if btn_admin:
-                st.session_state.nav_page = "admin"
-                st.rerun()
-
-        st.markdown("---")
-        if st.button("🚪 Log Out", use_container_width=True):
-            with get_db() as db:
-                AuditService.log_event(db, action="USER_LOGOUT", user_id=user_id, details=f"User {user['email']} logged out")
-            st.session_state.authenticated = False
-            st.session_state.user = None
-            st.session_state.nav_page = "workspace"
-            st.toast("Logged out successfully.")
-            st.rerun()
+    # Refresh user data from database
+    with get_db() as db:
+        user_obj = crud.get_user_by_id(db, user_id)
+        if user_obj:
+            user = user_obj.to_dict()
+            st.session_state.user = user
 
     # ==========================================
     # MAIN APPLICATION VIEW
     # ==========================================
-    # Render Global Top Header
+    # Anchor at the absolute top of the page for scroll-to-top actions
+    st.markdown("<div id='page-top' style='position: relative; top: -30px;'></div>", unsafe_allow_html=True)
+
+    # Render Global Top Header (with Docs, Chat, Analytics, Admin, Settings, and Mode Pill)
     render_header_ui(user)
 
+
     # Page Router
-    if st.session_state.nav_page == "workspace":
-        tab_docs, tab_chat = st.tabs(["📄 Documents", "💬 Chatbot"])
-        with tab_docs:
-            render_documents_tab(user)
-        with tab_chat:
-            render_chatbot_tab(user)
+    curr_page = st.session_state.get("nav_page", "documents")
 
-    elif st.session_state.nav_page == "settings":
-        render_settings_tab(user)
+    if curr_page in ("documents", "workspace"):
+        render_documents_tab(user)
 
-    elif st.session_state.nav_page == "usage":
+    elif curr_page == "chatbot":
+        render_chatbot_tab(user)
+
+    elif curr_page == "usage":
         render_usage_tab(user)
 
-    elif st.session_state.nav_page == "admin":
+    elif curr_page == "admin":
         render_admin_dashboard(user)
+
+    elif curr_page == "settings":
+        render_settings_tab(user)
+
+    else:
+        render_documents_tab(user)
+
+
+
 

@@ -79,7 +79,7 @@ def render_auth_ui():
                         st.session_state.user_name = user.name
                         st.session_state.user_email = user.email
                         st.session_state.user_role = user.role
-                        st.session_state.nav_page = "workspace"
+                        st.session_state.nav_page = "documents"
                         st.session_state.auth_view = "tabs"
                         st.toast(f"Welcome, {user.name}! Your account is now active.")
                         st.rerun()
@@ -142,7 +142,7 @@ def render_auth_ui():
                         st.session_state.user_name = user.name
                         st.session_state.user_email = user.email
                         st.session_state.user_role = user.role
-                        st.session_state.nav_page = "workspace"
+                        st.session_state.nav_page = "documents"
                         st.success(f"Welcome back, {user.name}!")
                         st.rerun()
                     else:
@@ -215,7 +215,7 @@ def render_auth_ui():
                         st.session_state.user_name = user.name
                         st.session_state.user_email = user.email
                         st.session_state.user_role = user.role
-                        st.session_state.nav_page = "workspace"
+                        st.session_state.nav_page = "documents"
                         st.toast(f"Welcome, {user.name}! Your account is now active.")
                         st.rerun()
                     else:

@@ -57,21 +57,34 @@ def render_usage_tab(user: dict):
     col_details, col_info = st.columns([1, 1])
 
     with col_details:
-        st.markdown("#### ⚙️ Workspace Configuration")
         st.markdown(f"""
-        - **User ID:** `user_{user_id}`
-        - **Account Email:** `{user.get('email', '')}`
-        - **Active Mode:** `{'🚀 User Credentials (BYOK)' if is_byok else '🟢 Application Credentials (Shared)'}`
-        - **Pinecone Index:** `{creds.get('pinecone_index', '')}`
-        - **Isolated Namespace:** `{creds.get('namespace', '')}`
-        - **Groq LLM Model:** `{creds.get('groq_model', '')}`
-        - **Last Workspace Activity:** `{last_act}`
-        """)
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; height: 100%;">
+            <h4 style="color: #f8fafc; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                ⚙️ Workspace Configuration
+            </h4>
+            <div style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.8;">
+                <div><b>User ID:</b> <code style="background: rgba(30, 41, 59, 0.8); padding: 2px 6px; border-radius: 4px;">user_{user_id}</code></div>
+                <div><b>Email:</b> <code style="background: rgba(30, 41, 59, 0.8); padding: 2px 6px; border-radius: 4px;">{user.get('email', '')}</code></div>
+                <div><b>Active Mode:</b> <span style="color: {'#34d399' if is_byok else '#38bdf8'}; font-weight: 600;">{'🚀 User Credentials (BYOK)' if is_byok else '🟢 Application Shared'}</span></div>
+                <div><b>Pinecone Index:</b> <code style="background: rgba(30, 41, 59, 0.8); padding: 2px 6px; border-radius: 4px;">{creds.get('pinecone_index', '')}</code></div>
+                <div><b>Isolated Namespace:</b> <code style="background: rgba(30, 41, 59, 0.8); padding: 2px 6px; border-radius: 4px;">{creds.get('namespace', '')}</code></div>
+                <div><b>Groq LLM Model:</b> <code style="background: rgba(30, 41, 59, 0.8); padding: 2px 6px; border-radius: 4px; color: #818cf8;">{creds.get('groq_model', '')}</code></div>
+                <div><b>Last Workspace Activity:</b> <span style="color: #94a3b8;">{last_act}</span></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col_info:
-        st.markdown("#### 🛡️ Data Isolation & Privacy")
         st.markdown("""
-        - **Multi-Tenant Isolation:** Your document vectors are stored exclusively in an isolated namespace inaccessible to other accounts.
-        - **Grounded Responses:** Answers are retrieved strictly from your uploaded files with zero halluncinations.
-        - **Encrypted Secrets:** Personal API keys are encrypted at rest using AES-256 and are never exposed.
-        """)
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 18px; height: 100%;">
+            <h4 style="color: #f8fafc; margin-top: 0; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                🛡️ Data Isolation & Privacy
+            </h4>
+            <div style="font-size: 0.88rem; color: #cbd5e1; line-height: 1.8;">
+                <div>🔒 <b>Multi-Tenant Isolation:</b> Your document vectors are stored in an isolated Pinecone namespace strictly segregated from other users.</div>
+                <div style="margin-top: 6px;">🎯 <b>Grounded Responses:</b> AI answers are derived strictly from your uploaded files with zero hallucination.</div>
+                <div style="margin-top: 6px;">🔑 <b>Encrypted Secrets:</b> Personal API keys are protected at rest using <b>AES-256 GCM</b> encryption.</div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+

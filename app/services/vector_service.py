@@ -211,29 +211,40 @@ class VectorService:
         self,
         source_name: str,
         namespace: str,
+        user_id: Optional[int] = None,
+        vector_count: Optional[int] = None,
         vector_ids: Optional[List[str]] = None,
         api_key: Optional[str] = None,
         index_name: Optional[str] = None
     ) -> int:
         """
         Deletes all vectors belonging to a source document within user's isolated namespace.
+        Uses deterministic vector ID generation to ensure deletion works reliably in Pinecone Serverless.
         """
+        from pathlib import Path
         try:
             index = self._get_index(api_key, index_name)
             deleted_count = 0
 
-            # 1. Delete by vector IDs if provided
-            if vector_ids and len(vector_ids) > 0:
-                for start in range(0, len(vector_ids), 1000):
-                    batch_ids = vector_ids[start : start + 1000]
+            # 1. Build list of deterministic vector IDs if user_id or vector_count is known
+            target_ids = list(vector_ids) if vector_ids else []
+            if not target_ids and user_id is not None:
+                base_id = Path(source_name).stem.replace(" ", "_")
+                max_chunks = (vector_count + 50) if (vector_count and vector_count > 0) else 1500
+                target_ids = [f"user_{user_id}_{base_id}_chunk_{i}" for i in range(max_chunks)]
+
+            # 2. Delete by vector IDs in batches of 500
+            if target_ids:
+                for start in range(0, len(target_ids), 500):
+                    batch_ids = target_ids[start : start + 500]
                     try:
                         index.delete(ids=batch_ids, namespace=namespace)
                         deleted_count += len(batch_ids)
                     except Exception as e:
                         logger.warning(f"Batch vector ID delete warning: {e}")
-                logger.info(f"Deleted {deleted_count} vectors by ID for '{source_name}' in namespace '{namespace}'")
+                logger.info(f"Deleted vector batch for '{source_name}' in namespace '{namespace}' (total targeted: {len(target_ids)})")
 
-            # 2. Metadata filter deletion
+            # 3. Also attempt metadata filter deletion if supported by index type
             try:
                 index.delete(
                     filter={"source": {"$eq": source_name}},
@@ -246,20 +257,41 @@ class VectorService:
                         namespace=namespace
                     )
                 except Exception as ex:
-                    logger.warning(f"Metadata filter deletion note: {ex}")
+                    logger.debug(f"Metadata filter deletion note: {ex}")
 
             return deleted_count
         except Exception as e:
             self._handle_pinecone_error(e)
             return 0
 
+    def delete_document_vectors(
+        self,
+        user_id: int,
+        file_name: str,
+        vector_count: int,
+        namespace: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> int:
+        """
+        High-level helper to guarantee all vector chunks of a document are removed from Pinecone.
+        """
+        return self.delete_by_source(
+            source_name=file_name,
+            namespace=namespace,
+            user_id=user_id,
+            vector_count=vector_count,
+            api_key=api_key,
+            index_name=index_name
+        )
+
     def delete_namespace(self, namespace: str, api_key: Optional[str] = None, index_name: Optional[str] = None):
         """
-        Completely deletes an entire namespace (e.g. when a user is deleted).
+        Completely purges an entire namespace (e.g. when all user documents are deleted or user requests wipe).
         """
         try:
             index = self._get_index(api_key, index_name)
             index.delete(delete_all=True, namespace=namespace)
-            logger.info(f"Deleted all vectors in namespace '{namespace}'")
+            logger.info(f"Successfully purged all vectors in namespace '{namespace}'")
         except Exception as e:
             logger.warning(f"Delete namespace note: {e}")

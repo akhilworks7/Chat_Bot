@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     GROQ_MODEL: str = "openai/gpt-oss-120b"
     GROQ_TEMPERATURE: float = 0.0
 
+
     # Database Configuration (PostgreSQL with SQLite fallback)
     DATABASE_URL: str = "sqlite:///./data/rag_app.db"
 
@@ -54,7 +55,8 @@ class Settings(BaseSettings):
     CHUNK_OVERLAP: int = 200
 
     # RAG Retrieval Configuration
-    TOP_K: int = 8
+    TOP_K: int = 4
+
 
     # Directory Paths
     DOCUMENTS_DIR: str = "data/documents"

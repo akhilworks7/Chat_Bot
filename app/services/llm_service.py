@@ -59,138 +59,170 @@ class LLMService:
 
         return "\n\n".join(context_parts)
 
-    def create_rag_prompt(self, question: str, context: str) -> str:
+    def create_chat_prompt(self, question: str, context: Optional[str] = None) -> str:
         """
-        Constructs strict RAG prompt enforcing grounded generation.
+        Constructs prompt supporting both grounded document QA and polite, natural Chit Chat.
         """
-        return f"""You are a helpful, accurate, and context-grounded document assistant.
+        if context and context.strip():
+            return f"""You are DocuMind AI, an intelligent, polite, and accurate document assistant.
 
-Your task is to answer the user's question using the information provided in the context below.
-
-Rules:
-1. Answer strictly based on the provided context. Do not invent or assume information.
-2. If the user asks for a list, summary, or specific details (such as names, advisory board members, advisors, authors, precautions, symptoms, or procedures), extract and present all relevant information found in the context clearly (using bullet points or numbered lists where requested).
-3. If only partial information or some items are available in the context, provide what is found and state what is mentioned in the context.
-4. If the question cannot be answered from the provided context at all, respond with:
-   "The information is not available in the provided documents."
-5. Format your response cleanly using Markdown (bold text, lists, headers).
-
-Context:
+Context from user's uploaded documents:
 -------------------------
-{context}
+{context.strip()}
 -------------------------
 
-User Question:
+User Message:
 {question}
 
+Instructions:
+1. If the user's message is asking about information in their uploaded documents, answer accurately and factually using the provided context. If the context contains partial information, share what is mentioned.
+2. If the user's message is a greeting, polite pleasantry (e.g., 'hi', 'hello', 'how are you', 'thank you'), casual conversation, or general query not covered in the context, respond politely, naturally, and helpfully as DocuMind AI.
+3. If the user asks a question expecting document-specific facts that are completely absent from the context, politely clarify that the provided documents do not contain that information, but offer to help with general questions or other topics.
+4. Format your response cleanly using Markdown (headers, bullet points, bold text).
+
 Answer:"""
+        else:
+            return f"""You are DocuMind AI, a friendly, polite, and intelligent document assistant and conversational AI.
+
+User Message:
+{question}
+
+Instructions:
+1. Respond politely, naturally, and helpfully to the user's greeting, question, or casual conversation.
+2. If the user asks what you can do or how to use the app, explain that you are DocuMind AI and can answer general questions as well as ingest and analyze PDF documents uploaded to their DocuMind workspace.
+3. Format your response cleanly using Markdown (headers, bullet points, bold text).
+
+Answer:"""
+
+    def create_rag_prompt(self, question: str, context: str) -> str:
+        """Backward-compatible alias for create_chat_prompt."""
+        return self.create_chat_prompt(question, context)
 
     def generate_answer(
         self,
         question: str,
-        context: str,
+        context: Optional[str] = None,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         temperature: Optional[float] = None
     ) -> str:
         """
-        Calls the Groq chat completion API to generate an answer based on the provided context.
+        Calls the Groq chat completion API to generate an answer with automatic rate-limit fallback.
         """
-        model_name = model or settings.GROQ_MODEL
+        primary_model = model or settings.GROQ_MODEL
         temp = temperature if temperature is not None else settings.GROQ_TEMPERATURE
 
-        if not context or not context.strip():
-            return "The information is not available in the provided documents."
-
-        prompt = self.create_rag_prompt(question, context)
+        prompt = self.create_chat_prompt(question, context)
         client = self._get_client(api_key)
 
-        try:
-            logger.info(f"Generating answer with model: '{model_name}' (temp: {temp})")
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a precise document QA assistant. Answer only from the provided context."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=temp,
-            )
-            answer = response.choices[0].message.content.strip()
-            logger.info("Successfully generated answer from Groq LLM.")
-            return answer
-        except RateLimitError as e:
-            logger.warning(f"Groq rate limit hit: {e}")
+        models_to_try = [primary_model]
+        for fb in ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "groq/compound-mini"]:
+            if fb != primary_model and fb not in models_to_try:
+                models_to_try.append(fb)
+
+        last_err = None
+        for current_model in models_to_try:
+            try:
+                logger.info(f"Generating answer with model: '{current_model}' (temp: {temp})")
+                response = client.chat.completions.create(
+                    model=current_model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are DocuMind AI, a helpful, polite, and intelligent AI document assistant capable of both conversational chit-chat and precise document analysis."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=temp,
+                )
+                answer = response.choices[0].message.content.strip()
+                logger.info(f"Successfully generated answer from Groq LLM using '{current_model}'.")
+                return answer
+            except RateLimitError as e:
+                logger.warning(f"Groq rate limit hit on '{current_model}': {e}. Attempting next model...")
+                last_err = e
+                continue
+            except AuthenticationError as e:
+                logger.error(f"Groq auth error: {e}")
+                raise GroqAuthException("Authentication Error: Invalid Groq API Key. Please update your API Settings.")
+            except Exception as e:
+                logger.error(f"Groq generation error: {e}")
+                raise Exception(f"Groq Generation Error: {str(e)}")
+
+        if last_err:
             raise GroqQuotaException(
                 "⚠️ Groq Usage Limit Reached\n\n"
-                "Your Groq account has reached its current quota or rate limit.\n\n"
+                "Your Groq account has reached its current quota or rate limit across all available models.\n\n"
                 "Please check your Groq account usage or upgrade your plan.\n\n"
-                "Try again when your quota becomes available."
+                "Try again in a few seconds."
             )
-        except AuthenticationError as e:
-            logger.error(f"Groq auth error: {e}")
-            raise GroqAuthException("Authentication Error: Invalid Groq API Key. Please update your API Settings.")
-        except Exception as e:
-            logger.error(f"Groq generation error: {e}")
-            raise Exception(f"Groq Generation Error: {str(e)}")
 
     def generate_answer_stream(
         self,
         question: str,
-        context: str,
+        context: Optional[str] = None,
         api_key: Optional[str] = None,
         model: Optional[str] = None,
         temperature: Optional[float] = None
     ):
         """
-        Yields streaming chunks from Groq LLM API.
+        Yields streaming chunks from Groq LLM API with automatic rate-limit fallback.
         """
-        model_name = model or settings.GROQ_MODEL
+        primary_model = model or settings.GROQ_MODEL
         temp = temperature if temperature is not None else settings.GROQ_TEMPERATURE
 
-        if not context or not context.strip():
-            yield "The information is not available in the provided documents."
-            return
-
-        prompt = self.create_rag_prompt(question, context)
+        prompt = self.create_chat_prompt(question, context)
         client = self._get_client(api_key)
 
-        try:
-            logger.info(f"Streaming answer with model: '{model_name}' (temp: {temp})")
-            response = client.chat.completions.create(
-                model=model_name,
-                messages=[
-                    {
-                        "role": "system",
-                        "content": "You are a precise document QA assistant. Answer only from the provided context."
-                    },
-                    {
-                        "role": "user",
-                        "content": prompt
-                    }
-                ],
-                temperature=temp,
-                stream=True
-            )
-            for chunk in response:
-                if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
-        except RateLimitError as e:
-            logger.warning(f"Groq rate limit hit: {e}")
+        models_to_try = [primary_model]
+        for fb in ["openai/gpt-oss-20b", "qwen/qwen3.8-27b", "groq/compound-mini"]:
+            if fb != primary_model and fb not in models_to_try:
+                models_to_try.append(fb)
+
+
+        last_err = None
+        for current_model in models_to_try:
+            try:
+                logger.info(f"Streaming answer with model: '{current_model}' (temp: {temp})")
+                response = client.chat.completions.create(
+                    model=current_model,
+                    messages=[
+                        {
+                            "role": "system",
+                            "content": "You are DocuMind AI, a helpful, polite, and intelligent AI document assistant capable of both conversational chit-chat and precise document analysis."
+                        },
+                        {
+                            "role": "user",
+                            "content": prompt
+                        }
+                    ],
+                    temperature=temp,
+                    stream=True
+                )
+                yielded_any = False
+                for chunk in response:
+                    if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                        yielded_any = True
+                        yield chunk.choices[0].delta.content
+                if yielded_any:
+                    return
+            except RateLimitError as e:
+                logger.warning(f"Groq rate limit hit on '{current_model}': {e}. Attempting fallback model...")
+                last_err = e
+                continue
+            except AuthenticationError as e:
+                logger.error(f"Groq auth error: {e}")
+                raise GroqAuthException("Authentication Error: Invalid Groq API Key. Please update your API Settings.")
+            except Exception as e:
+                logger.error(f"Groq streaming error: {e}")
+                raise Exception(f"Groq Generation Error: {str(e)}")
+
+        if last_err:
             raise GroqQuotaException(
                 "⚠️ Groq Usage Limit Reached\n\n"
-                "Your Groq account has reached its current quota or rate limit.\n\n"
-                "Please check your Groq account usage or upgrade your plan.\n\n"
-                "Try again when your quota becomes available."
+                "Your Groq account has reached its current quota or rate limit across all available models.\n\n"
+                "Please wait a few seconds and try again."
             )
-        except AuthenticationError as e:
-            logger.error(f"Groq auth error: {e}")
-            raise GroqAuthException("Authentication Error: Invalid Groq API Key. Please update your API Settings.")
-        except Exception as e:
-            logger.error(f"Groq streaming error: {e}")
-            raise Exception(f"Groq Generation Error: {str(e)}")

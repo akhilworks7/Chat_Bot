@@ -22,6 +22,8 @@ def render_admin_dashboard(admin_user: dict):
     st.markdown("## 🛡️ Enterprise Administration & Infrastructure Dashboard")
     st.caption("Monitor multi-tenant resource consumption, manage accounts, and configure global application policies.")
 
+
+
     with get_db() as db:
         metrics = crud.get_admin_dashboard_metrics(db)
         app_doc_limit = crud.get_int_setting(db, "APPLICATION_CREDENTIAL_DOCUMENT_LIMIT", default=settings.APPLICATION_CREDENTIAL_DOCUMENT_LIMIT)

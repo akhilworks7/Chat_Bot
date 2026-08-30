@@ -7,6 +7,8 @@ from app.utils.logger import get_logger
 logger = get_logger("embedding_service")
 
 
+import threading
+
 class EmbeddingService:
     """
     Generates dense vector embeddings using SentenceTransformers.
@@ -15,10 +17,14 @@ class EmbeddingService:
 
     _instance = None
     _model = None
+    _lock = threading.Lock()
+    _warmup_thread = None
 
     def __new__(cls, *args, **kwargs):
         if cls._instance is None:
-            cls._instance = super(EmbeddingService, cls).__new__(cls)
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super(EmbeddingService, cls).__new__(cls)
         return cls._instance
 
     def __init__(self, model_name: str = None):
@@ -26,21 +32,45 @@ class EmbeddingService:
 
     def _get_model(self):
         if self._model is None:
-            import torch
-            from sentence_transformers import SentenceTransformer
+            with self._lock:
+                if self._model is None:
+                    import torch
+                    from sentence_transformers import SentenceTransformer
 
-            import os
-            self.device = "cuda" if torch.cuda.is_available() else "cpu"
-            if self.device == "cpu":
-                torch.set_num_threads(min(4, os.cpu_count() or 2))
-            logger.info(f"Lazily loading embedding model '{self.model_name}' on device: {self.device}")
-            self._model = SentenceTransformer(self.model_name, device=self.device)
-            logger.info("Embedding model loaded successfully.")
+                    import os
+                    self.device = "cuda" if torch.cuda.is_available() else "cpu"
+                    if self.device == "cpu":
+                        torch.set_num_threads(min(4, os.cpu_count() or 2))
+                    logger.info(f"Loading embedding model '{self.model_name}' on device: {self.device}")
+                    self._model = SentenceTransformer(self.model_name, device=self.device)
+                    logger.info("Embedding model loaded successfully.")
         return self._model
+
+    @classmethod
+    def start_background_warmup(cls):
+        """Spawns a background daemon thread to load model weights without blocking the page load."""
+        if cls._model is None and (cls._warmup_thread is None or not cls._warmup_thread.is_alive()):
+            def _runner():
+                try:
+                    inst = cls()
+                    inst.embed_query("warmup")
+                    logger.info("Background embedding warmup complete.")
+                except Exception as e:
+                    logger.warning(f"Background embedding warmup notice: {e}")
+
+            cls._warmup_thread = threading.Thread(target=_runner, daemon=True)
+            cls._warmup_thread.start()
+
+    @classmethod
+    def warmup(cls):
+        """Backward compatible warmup method."""
+        cls.start_background_warmup()
 
     @property
     def dimension(self) -> int:
         return settings.EMBEDDING_DIMENSION
+
+
 
     def embed_documents(
         self,
