@@ -1,5 +1,4 @@
 from typing import List, Dict, Any, Optional
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
 from app.utils.logger import get_logger
@@ -19,17 +18,24 @@ class ChunkingService:
     ):
         self.chunk_size = chunk_size or settings.CHUNK_SIZE
         self.chunk_overlap = chunk_overlap or settings.CHUNK_OVERLAP
-        self.splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.chunk_size,
-            chunk_overlap=self.chunk_overlap,
-            separators=[
-                "\n\n",   # Paragraph
-                "\n",     # Line
-                ". ",     # Sentence
-                " ",      # Word
-                ""        # Character
-            ]
-        )
+        self._splitter = None
+
+    @property
+    def splitter(self):
+        if self._splitter is None:
+            from langchain_text_splitters import RecursiveCharacterTextSplitter
+            self._splitter = RecursiveCharacterTextSplitter(
+                chunk_size=self.chunk_size,
+                chunk_overlap=self.chunk_overlap,
+                separators=[
+                    "\n\n",   # Paragraph
+                    "\n",     # Line
+                    ". ",     # Sentence
+                    " ",      # Word
+                    ""        # Character
+                ]
+            )
+        return self._splitter
 
     def split_text(self, text: str) -> List[str]:
         """

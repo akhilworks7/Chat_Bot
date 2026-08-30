@@ -1,7 +1,7 @@
 import os
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict
 import pymupdf
 
 from app.config import settings
@@ -12,7 +12,7 @@ logger = get_logger("document_service")
 
 class DocumentService:
     """
-    Handles PDF inspection, OCR preprocessing, and text extraction using OpenDataLoader.
+    Handles PDF inspection, OCR preprocessing, text extraction, and multi-tenant file management.
     """
 
     def __init__(self, output_dir: Optional[str] = None, processed_dir: Optional[str] = None):
@@ -20,11 +20,16 @@ class DocumentService:
         self.processed_dir = processed_dir or settings.PROCESSED_DIR
         os.makedirs(self.output_dir, exist_ok=True)
         os.makedirs(self.processed_dir, exist_ok=True)
+        os.makedirs(settings.DOCUMENTS_DIR, exist_ok=True)
+
+    def get_user_doc_dir(self, user_id: int) -> str:
+        path = os.path.join(settings.DOCUMENTS_DIR, f"user_{user_id}")
+        os.makedirs(path, exist_ok=True)
+        return path
 
     def is_searchable_pdf(self, pdf_path: str, min_chars_per_page: int = 20) -> bool:
         """
         Check whether a PDF contains a searchable text layer.
-        Returns True if >= 50% of the pages contain extracted text.
         """
         if not os.path.exists(pdf_path):
             raise FileNotFoundError(f"PDF file not found: {pdf_path}")
@@ -78,7 +83,6 @@ class DocumentService:
     def prepare_pdf(self, pdf_path: str) -> str:
         """
         Ensures the PDF is searchable by running OCR if needed.
-        Returns the path to the searchable PDF.
         """
         if not os.path.exists(pdf_path):
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
@@ -92,8 +96,7 @@ class DocumentService:
 
     def extract_text(self, pdf_path: str) -> str:
         """
-        Extract text from a PDF using lightweight PyMuPDF streaming (low memory)
-        with OpenDataLoader / OCR fallback.
+        Extract text from a PDF using high-performance PyMuPDF streaming with fallback.
         """
         import gc
         searchable_pdf = self.prepare_pdf(pdf_path)
@@ -102,7 +105,6 @@ class DocumentService:
         base_name = Path(searchable_pdf).stem
         txt_file_path = os.path.join(self.output_dir, f"{base_name}.txt")
 
-        # High efficiency, low-RAM streaming extraction via PyMuPDF
         text_parts = []
         try:
             doc = pymupdf.open(searchable_pdf)
@@ -114,7 +116,7 @@ class DocumentService:
             doc.close()
             text = "\n\n".join(text_parts)
         except Exception as ex:
-            logger.warning(f"Direct PyMuPDF extraction encountered an issue: {ex}. Trying opendataloader_pdf...")
+            logger.warning(f"PyMuPDF direct extraction note: {ex}. Trying opendataloader_pdf...")
             try:
                 import opendataloader_pdf
                 opendataloader_pdf.convert(
@@ -128,38 +130,36 @@ class DocumentService:
                 else:
                     raise ex
             except Exception as e2:
-                logger.error(f"Fallback text extraction also failed: {e2}")
+                logger.error(f"Fallback text extraction failed: {e2}")
                 raise ex
 
         with open(txt_file_path, "w", encoding="utf-8") as f:
             f.write(text)
 
-        # Force garbage collection to keep RAM minimal on cloud free tiers
         del text_parts
         gc.collect()
 
         logger.info(f"Successfully extracted {len(text)} characters from {pdf_path}")
         return text
 
-    def delete_document_files(self, filename: str) -> dict:
+    def delete_document_files(self, file_path: str, filename: str) -> Dict[str, bool]:
         """
-        Deletes the physical files associated with a document (raw PDF, OCR PDF, extracted text).
+        Deletes the physical raw PDF, processed OCR PDF, and extracted TXT files.
         """
         base_name = Path(filename).stem
         deleted = {}
 
-        # 1. Raw PDF in data/documents
-        raw_pdf = os.path.join(settings.DOCUMENTS_DIR, filename)
-        if os.path.exists(raw_pdf):
+        # 1. Raw PDF
+        if file_path and os.path.exists(file_path):
             try:
-                os.remove(raw_pdf)
+                os.remove(file_path)
                 deleted["raw_pdf"] = True
-                logger.info(f"Deleted raw PDF: {raw_pdf}")
+                logger.info(f"Deleted raw PDF: {file_path}")
             except Exception as e:
-                logger.error(f"Failed to delete {raw_pdf}: {e}")
+                logger.error(f"Failed to delete {file_path}: {e}")
                 deleted["raw_pdf"] = False
 
-        # 2. Processed OCR PDF in data/processed
+        # 2. Processed OCR PDF
         ocr_pdf = os.path.join(self.processed_dir, f"{base_name}_ocr.pdf")
         if os.path.exists(ocr_pdf):
             try:
@@ -170,7 +170,7 @@ class DocumentService:
                 logger.error(f"Failed to delete {ocr_pdf}: {e}")
                 deleted["ocr_pdf"] = False
 
-        # 3. Extracted TXT in output/
+        # 3. Extracted TXT
         extracted_txt = os.path.join(self.output_dir, f"{base_name}.txt")
         if os.path.exists(extracted_txt):
             try:
@@ -182,9 +182,3 @@ class DocumentService:
                 deleted["extracted_txt"] = False
 
         return deleted
-
-
-# Helper / convenience function for legacy compatibility
-def extract_text_from_pdf(pdf_path: str) -> str:
-    service = DocumentService()
-    return service.extract_text(pdf_path)
