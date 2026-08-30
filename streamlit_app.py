@@ -15,13 +15,12 @@ st.set_page_config(
 # Load secrets from Streamlit Cloud into environment if available
 try:
     if hasattr(st, "secrets") and len(st.secrets) > 0:
-        for key in [
-            "PINECONE_API_KEY", "GROQ_API_KEY", "PINECONE_INDEX_NAME",
-            "PINECONE_ENVIRONMENT", "PINECONE_CLOUD", "DATABASE_URL",
-            "ENCRYPTION_KEY", "GROQ_MODEL"
-        ]:
-            if key in st.secrets:
-                os.environ[key] = str(st.secrets[key])
+        for k, v in st.secrets.items():
+            if isinstance(v, (str, int, float, bool)):
+                os.environ[k.upper()] = str(v)
+            elif hasattr(v, "items"):
+                for sub_k, sub_v in v.items():
+                    os.environ[sub_k.upper()] = str(sub_v)
 except Exception:
     # No secrets.toml found locally; environment variables and .env are used
     pass
