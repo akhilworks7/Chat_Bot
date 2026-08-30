@@ -608,4 +608,4 @@ def seed_initial_data(db: Session):
         )
         db.add(usage)
         db.flush()
-        logger.info("Created default system administrator: admin@documind.ai (Password: Admin@123456)")
+        logger.info("Created default system administrator: admin@documind.ai")
