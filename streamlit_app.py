@@ -69,20 +69,38 @@ from app.services.credential_service import CredentialService
 from app.services.audit_service import AuditService
 
 # ==========================================
-# MODERN CSS THEME & GLASSMORPHISM
+# MODERN LUXURY DARK THEME & GLASSMORPHISM DESIGN SYSTEM
 # ==========================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
     
-    html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+    /* Global Base Reset & Fonts */
+    html, body, [class*="css"], .stApp {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        background-color: #0b0f19 !important;
+        color: #f1f5f9 !important;
+    }
+
+    /* Ambient Background Mesh */
+    .stApp {
+        background-image: 
+            radial-gradient(at 12% 15%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
+            radial-gradient(at 88% 10%, rgba(168, 85, 247, 0.10) 0px, transparent 45%),
+            radial-gradient(at 50% 85%, rgba(14, 165, 233, 0.08) 0px, transparent 50%),
+            linear-gradient(180deg, #0b0f19 0%, #0d111e 100%) !important;
+        background-attachment: fixed !important;
     }
     
     h1, h2, h3, h4, h5, h6 {
-        font-family: 'Outfit', sans-serif;
-        font-weight: 700;
-        letter-spacing: -0.02em;
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.025em !important;
+        color: #f8fafc !important;
+    }
+
+    code, pre {
+        font-family: 'JetBrains Mono', monospace !important;
     }
 
     /* Streamlit header transparency and pointer-events handling */
@@ -107,29 +125,64 @@ st.markdown("""
         display: none !important;
     }
 
-    /* Popover dropdown menu styling */
-    div[data-testid="stPopoverBody"] {
-        background: #0f172a !important;
-        border: 1px solid rgba(99, 102, 241, 0.3) !important;
-        border-radius: 12px !important;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5) !important;
-        padding: 12px !important;
-    }
-
     /* Main Content Container Spacing */
     .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 2.5rem !important;
+        padding-top: 1.25rem !important;
+        padding-bottom: 3.5rem !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
-        max-width: 100% !important;
+        max-width: 1400px !important;
+        margin: 0 auto !important;
     }
 
+    /* Modern Tabs Design */
+    div[data-testid="stTabs"] {
+        margin-top: 0.5rem !important;
+    }
+    
+    div[data-baseweb="tab-list"] {
+        gap: 8px !important;
+        background: rgba(15, 23, 42, 0.6) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        padding: 6px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25) !important;
+        backdrop-filter: blur(12px) !important;
+    }
 
-    /* Ensure all Streamlit buttons have a uniform, solid, full-surface click area */
+    button[data-baseweb="tab"] {
+        height: auto !important;
+        padding: 8px 18px !important;
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 0.9rem !important;
+        border-radius: 8px !important;
+        color: #94a3b8 !important;
+        background: transparent !important;
+        border: none !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    button[data-baseweb="tab"]:hover {
+        color: #f8fafc !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    button[data-baseweb="tab"][aria-selected="true"] {
+        background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(168, 85, 247, 0.25)) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(129, 140, 248, 0.4) !important;
+        box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25) !important;
+    }
+
+    div[data-baseweb="tab-border"], div[data-baseweb="tab-highlight"] {
+        display: none !important;
+    }
+
+    /* Modern Primary & Secondary Buttons */
     div.stButton > button {
         position: relative !important;
-        z-index: 20 !important;
+        z-index: 10 !important;
         pointer-events: auto !important;
         cursor: pointer !important;
         width: 100% !important;
@@ -137,20 +190,130 @@ st.markdown("""
         display: inline-flex !important;
         align-items: center !important;
         justify-content: center !important;
+        font-family: 'Outfit', sans-serif !important;
         font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        letter-spacing: 0.01em !important;
+        border-radius: 10px !important;
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    }
+
+    /* Primary Button */
+    div.stButton > button[kind="primary"],
+    div.stButton > button[data-testid="stBaseButton-primary"] {
+        background: linear-gradient(135deg, #6366f1 0%, #7c3aed 50%, #9333ea 100%) !important;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.18) !important;
+        box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+    }
+
+    div.stButton > button[kind="primary"]:hover,
+    div.stButton > button[data-testid="stBaseButton-primary"]:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(99, 102, 241, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+        border-color: rgba(255, 255, 255, 0.3) !important;
+    }
+
+    div.stButton > button[kind="primary"]:active,
+    div.stButton > button[data-testid="stBaseButton-primary"]:active {
+        transform: translateY(0) !important;
+    }
+
+    /* Secondary Button */
+    div.stButton > button[kind="secondary"],
+    div.stButton > button[data-testid="stBaseButton-secondary"] {
+        background: rgba(15, 23, 42, 0.7) !important;
+        color: #cbd5e1 !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(8px) !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+    }
+
+    div.stButton > button[kind="secondary"]:hover,
+    div.stButton > button[data-testid="stBaseButton-secondary"]:hover {
+        background: rgba(30, 41, 59, 0.85) !important;
+        color: #ffffff !important;
+        border-color: rgba(99, 102, 241, 0.4) !important;
+        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2) !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* Download Buttons */
+    div[data-testid="stDownloadButton"] > button {
+        background: rgba(15, 23, 42, 0.7) !important;
+        color: #38bdf8 !important;
+        border: 1px solid rgba(56, 189, 248, 0.3) !important;
         border-radius: 8px !important;
-        transition: all 0.2s ease-in-out !important;
+        min-height: 2.3rem !important;
+        transition: all 0.2s ease !important;
+    }
+    div[data-testid="stDownloadButton"] > button:hover {
+        background: rgba(56, 189, 248, 0.15) !important;
+        border-color: #38bdf8 !important;
+        color: #ffffff !important;
+        transform: translateY(-1px) !important;
+    }
+
+    /* Form Inputs, Selectboxes & TextAreas */
+    div[data-baseweb="input"],
+    div[data-baseweb="select"] > div,
+    div[data-baseweb="base-input"],
+    div[data-testid="stTextInput"] input,
+    div[data-testid="stTextArea"] textarea {
+        background-color: rgba(15, 23, 42, 0.75) !important;
+        border-color: rgba(99, 102, 241, 0.25) !important;
+        color: #f8fafc !important;
+        border-radius: 10px !important;
+    }
+
+    div[data-baseweb="input"]:focus-within,
+    div[data-baseweb="select"] > div:focus-within,
+    div[data-testid="stTextInput"] input:focus {
+        border-color: #818cf8 !important;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3) !important;
+    }
+
+    div[data-testid="stSelectbox"] svg {
+        fill: #94a3b8 !important;
+    }
+
+    /* Popover & Dropdown Menu Styling */
+    div[data-testid="stPopoverBody"],
+    ul[data-baseweb="menu"] {
+        background: #0f172a !important;
+        border: 1px solid rgba(99, 102, 241, 0.35) !important;
+        border-radius: 12px !important;
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6) !important;
+        padding: 8px !important;
+        color: #f8fafc !important;
+    }
+
+    li[data-baseweb="menu-item"] {
+        border-radius: 8px !important;
+        color: #cbd5e1 !important;
+        transition: all 0.15s ease !important;
+    }
+
+    li[data-baseweb="menu-item"]:hover {
+        background: rgba(99, 102, 241, 0.2) !important;
+        color: #ffffff !important;
     }
 
     /* Modern Card & Container Styling */
-    .stCard, .source-card {
+    .stCard, .source-card, .glass-panel {
         background: rgba(15, 23, 42, 0.65) !important;
         border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 12px !important;
-        padding: 14px 18px !important;
-        margin-bottom: 10px !important;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-        backdrop-filter: blur(12px);
+        border-radius: 14px !important;
+        padding: 16px 20px !important;
+        margin-bottom: 12px !important;
+        box-shadow: 0 4px 24px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(14px);
+        transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .source-card:hover {
+        border-color: rgba(99, 102, 241, 0.3) !important;
+        box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
     }
 
     .source-badge {
@@ -158,50 +321,137 @@ st.markdown("""
         align-items: center;
         background: linear-gradient(135deg, #3b82f6, #6366f1);
         color: #ffffff;
-        font-size: 0.75rem;
-        font-weight: 600;
+        font-size: 0.74rem;
+        font-weight: 700;
         padding: 3px 10px;
         border-radius: 6px;
         margin-bottom: 6px;
-        letter-spacing: 0.01em;
+        letter-spacing: 0.02em;
     }
 
     /* Chat Messages Polish */
-    .stChatMessage {
-        background: rgba(15, 23, 42, 0.45) !important;
-        border: 1px solid rgba(255, 255, 255, 0.06) !important;
-        border-radius: 14px !important;
-        padding: 12px 16px !important;
-        margin-bottom: 12px !important;
-        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    /* Sidebar Customization */
-    section[data-testid="stSidebar"] {
-        background: #0b0f19 !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.06) !important;
-    }
-
-    section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {
-        gap: 0.5rem;
-    }
-
-    /* Metric cards glow */
-    div[data-testid="stMetric"] {
-        background: rgba(15, 23, 42, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
-        border-radius: 12px !important;
+    div[data-testid="stChatMessage"] {
+        background: rgba(15, 23, 42, 0.55) !important;
+        border: 1px solid rgba(255, 255, 255, 0.07) !important;
+        border-radius: 16px !important;
         padding: 14px 18px !important;
+        margin-bottom: 14px !important;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        backdrop-filter: blur(10px);
+    }
+
+    /* User Chat Message Bubble */
+    div[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
+        background: linear-gradient(135deg, rgba(30, 27, 75, 0.5), rgba(15, 23, 42, 0.7)) !important;
+        border: 1px solid rgba(129, 140, 248, 0.25) !important;
+    }
+
+    /* Metric Cards Styling */
+    div[data-testid="stMetric"] {
+        background: rgba(15, 23, 42, 0.65) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 14px !important;
+        padding: 16px 20px !important;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(12px);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    div[data-testid="stMetric"]::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, #6366f1, #a855f7, #38bdf8);
+        opacity: 0.8;
     }
 
     div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: rgba(99, 102, 241, 0.4) !important;
+        transform: translateY(-3px);
+        border-color: rgba(99, 102, 241, 0.45) !important;
+        box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
     }
 
-    /* Floating Scroll-to-Top and Scroll-to-Bottom Buttons */
+    div[data-testid="stMetricLabel"] {
+        font-family: 'Outfit', sans-serif !important;
+        font-size: 0.82rem !important;
+        font-weight: 600 !important;
+        color: #94a3b8 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.04em !important;
+    }
+
+    div[data-testid="stMetricValue"] {
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 800 !important;
+        font-size: 1.85rem !important;
+        color: #f8fafc !important;
+        letter-spacing: -0.02em !important;
+    }
+
+    div[data-testid="stMetricDelta"] {
+        font-size: 0.78rem !important;
+        font-weight: 600 !important;
+    }
+
+    /* File Uploader Dropzone Styling */
+    section[data-testid="stFileUploadDropzone"] {
+        background: rgba(15, 23, 42, 0.5) !important;
+        border: 2px dashed rgba(99, 102, 241, 0.35) !important;
+        border-radius: 16px !important;
+        padding: 24px 16px !important;
+        transition: all 0.25s ease !important;
+    }
+
+    section[data-testid="stFileUploadDropzone"]:hover {
+        border-color: #818cf8 !important;
+        background: rgba(30, 41, 59, 0.65) !important;
+        box-shadow: 0 0 20px rgba(99, 102, 241, 0.2) !important;
+    }
+
+    /* Chat Input Styling */
+    div[data-testid="stChatInput"] {
+        border-radius: 14px !important;
+        border: 1px solid rgba(99, 102, 241, 0.35) !important;
+        background: rgba(15, 23, 42, 0.9) !important;
+        backdrop-filter: blur(16px) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+    }
+
+    div[data-testid="stChatInput"]:focus-within {
+        border-color: #818cf8 !important;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.4), 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+    }
+
+    /* Expander Styling */
+    div[data-testid="stExpander"] {
+        background: rgba(15, 23, 42, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        border-radius: 12px !important;
+        margin-top: 8px !important;
+        margin-bottom: 8px !important;
+    }
+
+    div[data-testid="stExpander"] summary {
+        font-family: 'Outfit', sans-serif !important;
+        font-weight: 600 !important;
+        color: #cbd5e1 !important;
+    }
+
+    /* Modal Dialog Window */
+    div[data-testid="stDialog"] div[role="dialog"] {
+        background: #0d111e !important;
+        border: 1px solid rgba(99, 102, 241, 0.35) !important;
+        border-radius: 18px !important;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 40px rgba(99, 102, 241, 0.15) !important;
+        padding: 24px !important;
+    }
+
+    /* Floating Scroll Buttons */
     .scroll-top-btn, .scroll-bottom-btn {
         position: fixed !important;
         right: 28px !important;
@@ -209,41 +459,39 @@ st.markdown("""
         display: inline-flex !important;
         align-items: center !important;
         gap: 6px !important;
-        background: rgba(30, 27, 75, 0.92) !important;
-        border: 1px solid rgba(129, 140, 248, 0.5) !important;
+        background: rgba(15, 23, 42, 0.85) !important;
+        border: 1px solid rgba(129, 140, 248, 0.4) !important;
         color: #e0e7ff !important;
         text-decoration: none !important;
         padding: 8px 16px !important;
         border-radius: 30px !important;
         font-size: 0.82rem !important;
         font-weight: 700 !important;
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 16px rgba(99, 102, 241, 0.3) !important;
-        backdrop-filter: blur(10px) !important;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45), 0 0 16px rgba(99, 102, 241, 0.25) !important;
+        backdrop-filter: blur(12px) !important;
         transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
         cursor: pointer !important;
     }
 
     .scroll-top-btn {
-        bottom: 82px !important;
+        bottom: 86px !important;
     }
 
     .scroll-bottom-btn {
-        top: 130px !important;
+        top: 100px !important;
     }
 
-
     .scroll-top-btn:hover, .scroll-bottom-btn:hover {
-        background: linear-gradient(135deg, #4338ca, #6366f1) !important;
+        background: linear-gradient(135deg, #4f46e5, #7c3aed) !important;
         color: #ffffff !important;
-        border-color: #a5b4fc !important;
+        border-color: #c7d2fe !important;
         transform: scale(1.05) !important;
-        box-shadow: 0 10px 25px rgba(99, 102, 241, 0.55) !important;
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5) !important;
     }
 
     .scroll-top-btn:active, .scroll-bottom-btn:active {
-        transform: scale(0.98) !important;
+        transform: scale(0.97) !important;
     }
-
 
     /* Custom Scrollbars */
     ::-webkit-scrollbar {

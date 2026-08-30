@@ -17,7 +17,6 @@ AVAILABLE_GROQ_MODELS = [
 ]
 
 
-
 def render_settings_content(user: dict, in_dialog: bool = False):
     """
     Renders the API & workspace settings interface with tabbed layout.
@@ -35,15 +34,25 @@ def render_settings_content(user: dict, in_dialog: bool = False):
     existing_pinecone_key = crypto.decrypt(creds.pinecone_api_key_encrypted) if (creds and creds.pinecone_api_key_encrypted) else ""
     existing_pinecone_index = creds.pinecone_index if (creds and creds.pinecone_index) else ""
     existing_groq_key = crypto.decrypt(creds.groq_api_key_encrypted) if (creds and creds.groq_api_key_encrypted) else ""
-    existing_groq_model = creds.groq_model if (creds and creds.groq_model) else "llama-3.3-70b-versatile"
+    existing_groq_model = creds.groq_model if (creds and creds.groq_model) else "openai/gpt-oss-120b"
 
     # Status Banner
     if is_byok:
-        st.success("🚀 **User Credentials (BYOK) Active:** Unlimited documents & custom Groq model.")
+        st.markdown("""
+        <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
+            <span style="color: #34d399; font-weight: 700; font-size: 0.95rem;">🚀 User Credentials (BYOK) Active:</span>
+            <span style="color: #cbd5e1; font-size: 0.88rem; margin-left: 6px;">Unlimited document capacity & customized Groq LLM inference enabled.</span>
+        </div>
+        """, unsafe_allow_html=True)
     else:
         used = allowance.get("used", 0)
         limit = allowance.get("limit", 2)
-        st.info(f"🟢 **Application Shared Mode:** Using {used}/{limit} free document slots. Connect your personal API keys below to unlock unlimited document indexing.")
+        st.markdown(f"""
+        <div style="background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
+            <span style="color: #38bdf8; font-weight: 700; font-size: 0.95rem;">🟢 Application Shared Mode:</span>
+            <span style="color: #cbd5e1; font-size: 0.88rem; margin-left: 6px;">Using <b>{used}/{limit}</b> free document slots. Connect your personal API keys below to unlock unlimited document indexing.</span>
+        </div>
+        """, unsafe_allow_html=True)
 
     tab_pinecone, tab_groq, tab_account = st.tabs([
         "🌲 Pinecone Vector DB",
@@ -140,7 +149,7 @@ def render_settings_content(user: dict, in_dialog: bool = False):
             st.markdown("""
             1. Visit [Groq Console](https://console.groq.com/keys) and log in.
             2. Click **Create API Key** and copy the `gsk_...` key.
-            3. Paste it above and choose your preferred model (e.g. `llama-3.3-70b-versatile`).
+            3. Paste it above and choose your preferred model (e.g. `openai/gpt-oss-120b`).
             """)
 
     # ----------------------------------------------------
@@ -149,15 +158,17 @@ def render_settings_content(user: dict, in_dialog: bool = False):
     with tab_account:
         st.markdown("#### 👤 Account & Workspace Details")
         st.markdown(f"""
-        - **Name:** `{user.get('name', 'User')}`
-        - **Email:** `{user.get('email', '')}`
-        - **Role:** `{user.get('role', 'user').upper()}`
-        - **User Namespace:** `user_{user_id}`
-        - **Active Credentials:** `{'🚀 BYOK (Custom Keys)' if is_byok else '🟢 Application Shared'}`
-        """)
+        <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; padding: 16px; font-size: 0.88rem; line-height: 2.0; color: #cbd5e1;">
+            <div><b>Name:</b> <span style="color: #f8fafc;">{user.get('name', 'User')}</span></div>
+            <div><b>Email:</b> <span style="color: #f8fafc;">{user.get('email', '')}</span></div>
+            <div><b>Role:</b> <span style="color: #c084fc; font-weight: 700;">{user.get('role', 'user').upper()}</span></div>
+            <div><b>User Namespace:</b> <code style="background: rgba(30, 41, 59, 0.8); padding: 2px 6px; border-radius: 4px; color: #a5b4fc;">user_{user_id}</code></div>
+            <div><b>Active Credentials:</b> <span style="color: {'#34d399' if is_byok else '#38bdf8'}; font-weight: 700;">{'🚀 BYOK (Custom Keys)' if is_byok else '🟢 Application Shared'}</span></div>
+        </div>
+        """, unsafe_allow_html=True)
 
         if is_byok:
-            st.markdown("---")
+            st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
             if st.button("🔄 Revert to Application Shared Credentials", key="btn_revert_creds", use_container_width=True):
                 with get_db() as db:
                     crud.delete_user_credentials(db=db, user_id=user_id)
@@ -170,14 +181,14 @@ def render_settings_content(user: dict, in_dialog: bool = False):
                 st.toast("Reverted to shared application credentials.")
                 st.rerun()
 
-    st.markdown("---")
+    st.markdown("<hr style='margin: 20px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
 
     # Global Save Button
     if st.button("💾 Save & Apply Workspace Credentials", type="primary", use_container_width=True, key="btn_save_all_settings"):
         p_val = st.session_state.get("cfg_pinecone_key", "").strip()
         p_idx = st.session_state.get("cfg_pinecone_index", "").strip()
         g_val = st.session_state.get("cfg_groq_key", "").strip()
-        g_mod = st.session_state.get("cfg_groq_model", "llama-3.3-70b-versatile")
+        g_mod = st.session_state.get("cfg_groq_model", "openai/gpt-oss-120b")
 
         if not p_val or not g_val or not p_idx:
             st.error("Please provide both Pinecone and Groq API keys along with index name.")
@@ -218,4 +229,3 @@ def render_settings_tab(user: dict):
     Standard full-page rendering for settings.
     """
     render_settings_content(user, in_dialog=False)
-

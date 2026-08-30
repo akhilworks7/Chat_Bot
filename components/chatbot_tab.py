@@ -4,7 +4,6 @@ import streamlit as st
 from app.db.database import get_db
 from app.db import crud
 
-
 from app.services.rag_service import RAGService
 from app.services.vector_service import PineconeQuotaException, PineconeAuthException
 from app.services.llm_service import GroqQuotaException, GroqAuthException
@@ -39,17 +38,16 @@ def render_chatbot_tab(user: dict):
     if "selected_groq_model" not in st.session_state or st.session_state.selected_groq_model not in AVAILABLE_MODELS:
         st.session_state.selected_groq_model = default_model if default_model in AVAILABLE_MODELS else AVAILABLE_MODELS[0]
 
-
     # ----------------------------------------------------
     # HEADER & TOOLBAR
     # ----------------------------------------------------
-    col_t, col_model, col_b = st.columns([2.5, 1.4, 0.8], vertical_alignment="center")
+    col_t, col_model, col_b = st.columns([3.0, 1.5, 0.8], vertical_alignment="center")
     with col_t:
-        st.markdown("### 💬 Document Intelligence & Chit Chat Assistant")
+        st.markdown("### 💬 AI Knowledge Assistant & Chit Chat")
         if user_docs:
-            st.caption(f"Semantic search & QA strictly grounded on **{len(user_docs)}** document(s) + General Chit Chat.")
+            st.caption(f"Grounded on **{len(user_docs)}** indexed document(s) with multi-turn memory + general intelligence.")
         else:
-            st.caption("🤖 Conversational Chit Chat is ready. Upload PDFs in the **📄 Document Vault** for document QA.")
+            st.caption("🤖 Conversational Assistant is ready. Upload PDFs in the **📄 Document Vault** to enable RAG document QA.")
 
     with col_model:
         curr_idx = AVAILABLE_MODELS.index(st.session_state.selected_groq_model) if st.session_state.selected_groq_model in AVAILABLE_MODELS else 0
@@ -59,7 +57,7 @@ def render_chatbot_tab(user: dict):
             index=curr_idx,
             key="chat_model_selector",
             label_visibility="collapsed",
-            help="Select the AI model for answering. If you hit a rate limit or want faster responses, switch models anytime!"
+            help="Select the AI model for answering. Switch models anytime!"
         )
         if selected_model != st.session_state.selected_groq_model:
             st.session_state.selected_groq_model = selected_model
@@ -72,9 +70,7 @@ def render_chatbot_tab(user: dict):
             st.toast("Chat history cleared.")
             st.rerun()
 
-    # Floating Navigation Buttons:
-    # 1. Floating Top-Right Scroll-To-Bottom Button (Visible when near top, glides down to latest message)
-    # 2. Floating Bottom-Right Scroll-To-Top Button (Visible when scrolled down, glides up to header)
+    # Floating Navigation Buttons
     st.markdown("""
     <a href="#chat-bottom" onclick="
         try {
@@ -127,9 +123,8 @@ def render_chatbot_tab(user: dict):
     </a>
     """, unsafe_allow_html=True)
 
-
     # ----------------------------------------------------
-    # DEDICATED MESSAGES CONTAINER (Always above input box)
+    # DEDICATED MESSAGES CONTAINER
     # ----------------------------------------------------
     chat_container = st.container()
 
@@ -137,16 +132,16 @@ def render_chatbot_tab(user: dict):
         if not db_history:
             if user_docs:
                 st.markdown("""
-                <div style="background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0;">
-                    <div style="font-size: 2rem; margin-bottom: 8px;">✨</div>
-                    <h4 style="color: #f8fafc; margin-bottom: 6px;">How can I assist you today?</h4>
-                    <p style="color: #94a3b8; font-size: 0.88rem; max-width: 520px; margin: 0 auto 16px auto;">
-                        Ask questions about your uploaded documents, extract insights, or have casual chit-chat anytime.
+                <div style="background: rgba(15, 23, 42, 0.45); border: 1px dashed rgba(99, 102, 241, 0.25); border-radius: 16px; padding: 28px 20px; text-align: center; margin: 16px 0 20px 0;">
+                    <div style="font-size: 2.4rem; margin-bottom: 8px;">✨</div>
+                    <h4 style="color: #f8fafc; margin-bottom: 6px; font-size: 1.2rem;">How can I assist you today?</h4>
+                    <p style="color: #94a3b8; font-size: 0.9rem; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
+                        Ask questions about your uploaded documents, extract key insights, or have casual chit-chat anytime.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<div style='color: #94a3b8; font-size: 0.82rem; font-weight: 600; margin-bottom: 8px;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #94a3b8; font-size: 0.82rem; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
                 col_s1, col_s2, col_s3 = st.columns(3)
                 with col_s1:
                     if st.button("📋 Summarize all documents", use_container_width=True, key="sug_sum"):
@@ -162,16 +157,16 @@ def render_chatbot_tab(user: dict):
                         st.rerun()
             else:
                 st.markdown("""
-                <div style="background: rgba(15, 23, 42, 0.4); border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 24px; text-align: center; margin: 20px 0;">
-                    <div style="font-size: 2rem; margin-bottom: 8px;">👋</div>
-                    <h4 style="color: #f8fafc; margin-bottom: 6px;">Welcome to DocuMind AI!</h4>
-                    <p style="color: #94a3b8; font-size: 0.88rem; max-width: 520px; margin: 0 auto 16px auto;">
+                <div style="background: rgba(15, 23, 42, 0.45); border: 1px dashed rgba(99, 102, 241, 0.25); border-radius: 16px; padding: 28px 20px; text-align: center; margin: 16px 0 20px 0;">
+                    <div style="font-size: 2.4rem; margin-bottom: 8px;">👋</div>
+                    <h4 style="color: #f8fafc; margin-bottom: 6px; font-size: 1.2rem;">Welcome to DocuMind AI!</h4>
+                    <p style="color: #94a3b8; font-size: 0.9rem; max-width: 520px; margin: 0 auto 16px auto; line-height: 1.5;">
                         You can chit-chat with me casually or upload PDF documents in the <b>📄 Document Vault</b> for deep semantic analysis.
                     </p>
                 </div>
                 """, unsafe_allow_html=True)
 
-                st.markdown("<div style='color: #94a3b8; font-size: 0.82rem; font-weight: 600; margin-bottom: 8px;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
+                st.markdown("<div style='color: #94a3b8; font-size: 0.82rem; font-weight: 700; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.04em;'>💡 Suggested queries:</div>", unsafe_allow_html=True)
                 col_s1, col_s2, col_s3 = st.columns(3)
                 with col_s1:
                     if st.button("👋 Hello, who are you?", use_container_width=True, key="sug_intro"):
@@ -210,23 +205,22 @@ def render_chatbot_tab(user: dict):
         st.markdown("<div id='chat-bottom' style='height: 1px;'></div>", unsafe_allow_html=True)
 
     # ----------------------------------------------------
-    # CHAT INPUT (Fixed at the bottom)
+    # CHAT INPUT (Fixed at bottom)
     # ----------------------------------------------------
     prompt = st.chat_input("Ask a question, chit-chat, or explore your uploaded documents...")
     if not prompt and "pending_prompt" in st.session_state:
         prompt = st.session_state.pop("pending_prompt")
 
     # ----------------------------------------------------
-    # PROCESS NEW USER QUERY (Rendered inside chat_container)
+    # PROCESS NEW USER QUERY
     # ----------------------------------------------------
     if prompt:
-
         with chat_container:
             # 1. Display user query inside the container
             with st.chat_message("user"):
                 st.markdown(prompt)
 
-            # Direct DOM auto-scroll to latest query (No iframe, runs in main window)
+            # Direct DOM auto-scroll to latest query
             st.markdown("""
             <img src="data:image/svg+xml;utf8,<svg></svg>" style="display:none;" onerror="
                 (function() {
@@ -350,11 +344,6 @@ def render_chatbot_tab(user: dict):
                             response_time_ms=elapsed_ms
                         )
 
-
-
-
-
-
                 except PineconeQuotaException as qe:
                     st.error(str(qe))
                 except PineconeAuthException as ae:
@@ -365,5 +354,3 @@ def render_chatbot_tab(user: dict):
                     st.error(str(gae))
                 except Exception as e:
                     st.error(f"Error answering question: {str(e)}")
-
-

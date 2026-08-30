@@ -22,8 +22,6 @@ def render_admin_dashboard(admin_user: dict):
     st.markdown("## 🛡️ Enterprise Administration & Infrastructure Dashboard")
     st.caption("Monitor multi-tenant resource consumption, manage accounts, and configure global application policies.")
 
-
-
     with get_db() as db:
         metrics = crud.get_admin_dashboard_metrics(db)
         app_doc_limit = crud.get_int_setting(db, "APPLICATION_CREDENTIAL_DOCUMENT_LIMIT", default=settings.APPLICATION_CREDENTIAL_DOCUMENT_LIMIT)
@@ -54,7 +52,7 @@ def render_admin_dashboard(admin_user: dict):
         with kpi6:
             st.metric("BYOK Users", metrics["byok_users"])
 
-        st.markdown("---")
+        st.markdown("<hr style='margin: 20px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
 
         st.markdown("### 🏢 Shared Infrastructure Resource Consumption")
         st.caption("Track resources consumed by users relying on your application's Pinecone and Groq keys.")
@@ -62,12 +60,14 @@ def render_admin_dashboard(admin_user: dict):
         col_res1, col_res2 = st.columns(2)
         with col_res1:
             st.markdown("""
-            <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 18px; margin-bottom: 16px;">
-                <h4 style="margin-top:0; color:#38bdf8;">🟢 Application Shared Keys Usage</h4>
-                <p style="margin: 6px 0; color:#cbd5e1;">Users utilizing shared keys: <b>{app_users}</b></p>
-                <p style="margin: 6px 0; color:#cbd5e1;">Documents processed: <b>{app_docs}</b></p>
-                <p style="margin: 6px 0; color:#cbd5e1;">Vectors generated & hosted: <b>{app_vecs:,}</b></p>
-                <p style="margin: 6px 0; color:#cbd5e1;">Total queries routed: <b>{queries:,}</b></p>
+            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 14px; padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+                <h4 style="margin-top:0; color:#38bdf8; display:flex; align-items:center; gap:8px;">🟢 Application Shared Keys Usage</h4>
+                <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 2.0; margin-top: 10px;">
+                    <div>Users utilizing shared keys: <b>{app_users}</b></div>
+                    <div>Documents processed: <b>{app_docs}</b></div>
+                    <div>Vectors generated & hosted: <b>{app_vecs:,}</b></div>
+                    <div>Total queries routed: <b>{queries:,}</b></div>
+                </div>
             </div>
             """.format(
                 app_users=metrics["app_credential_users"],
@@ -78,12 +78,14 @@ def render_admin_dashboard(admin_user: dict):
 
         with col_res2:
             st.markdown("""
-            <div style="background: rgba(30, 41, 59, 0.7); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 18px; margin-bottom: 16px;">
-                <h4 style="margin-top:0; color:#a855f7;">🚀 BYOK User Usage (Zero App Cost)</h4>
-                <p style="margin: 6px 0; color:#cbd5e1;">Users with personal keys: <b>{byok_users}</b></p>
-                <p style="margin: 6px 0; color:#cbd5e1;">Pinecone & Groq Costs: <b>$0.00 (External accounts)</b></p>
-                <p style="margin: 6px 0; color:#cbd5e1;">Document Capacity: <b>Unlimited</b></p>
-                <p style="margin: 6px 0; color:#cbd5e1;">Isolation Status: <b>Dedicated user namespaces</b></p>
+            <div style="background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(168, 85, 247, 0.3); border-radius: 14px; padding: 22px; margin-bottom: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);">
+                <h4 style="margin-top:0; color:#a855f7; display:flex; align-items:center; gap:8px;">🚀 BYOK User Usage (Zero App Cost)</h4>
+                <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 2.0; margin-top: 10px;">
+                    <div>Users with personal keys: <b>{byok_users}</b></div>
+                    <div>Pinecone & Groq Costs: <b>$0.00 (External accounts)</b></div>
+                    <div>Document Capacity: <b>Unlimited</b></div>
+                    <div>Isolation Status: <b>Dedicated user namespaces</b></div>
+                </div>
             </div>
             """.format(
                 byok_users=metrics["byok_users"]
@@ -124,14 +126,14 @@ def render_admin_dashboard(admin_user: dict):
                 status_pill = "🟢 Active" if u.is_active else "🔴 Deactivated"
                 verify_pill = "✅ Verified" if u.email_verified else "⏳ Unverified"
 
-                col_u_info, col_u_metrics, col_u_actions = st.columns([4, 4, 3])
+                col_u_info, col_u_metrics, col_u_actions = st.columns([4, 4, 3], vertical_alignment="center")
 
                 with col_u_info:
                     st.markdown(f"**{u.name}** (`{u.role}`)")
                     st.caption(f"✉️ {u.email} · {verify_pill} · {status_pill}")
 
                 with col_u_metrics:
-                    st.markdown(f"<span style='color:{mode_color}; font-weight:600;'>{mode_label}</span> · <b>{docs_count}</b> Docs", unsafe_allow_html=True)
+                    st.markdown(f"<span style='color:{mode_color}; font-weight:700;'>{mode_label}</span> · <b>{docs_count}</b> Docs", unsafe_allow_html=True)
                     st.caption(f"📊 {vec_count:,} Vectors · {q_count} Queries · Active: {last_act}")
 
                 with col_u_actions:
@@ -182,7 +184,7 @@ def render_admin_dashboard(admin_user: dict):
                                     st.error(purge_msg)
                                 st.rerun()
 
-                st.markdown("<hr style='margin: 8px 0; border-color: rgba(255,255,255,0.05);'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin: 10px 0; border-color: rgba(255,255,255,0.06);'>", unsafe_allow_html=True)
 
     # ----------------------------------------------------
     # TAB 3: SYSTEM CONFIGURATION
@@ -223,7 +225,7 @@ def render_admin_dashboard(admin_user: dict):
                 help="When enabled, newly registered users are automatically verified without requiring SMTP delivery."
             )
 
-            st.markdown("---")
+            st.markdown("<hr style='margin: 16px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
             st.markdown("#### ✉️ Transactional Email & SMTP Server Settings")
             st.caption("Configure SMTP to send real verification and password reset emails to user inboxes (e.g. Gmail, Outlook, SendGrid).")
 
@@ -318,7 +320,7 @@ def render_admin_dashboard(admin_user: dict):
             for l in logs:
                 t_str = l.timestamp.strftime("%Y-%m-%d %H:%M:%S")
                 st.markdown(f"""
-                <div style="background: rgba(15, 23, 42, 0.5); border-left: 3px solid #6366f1; padding: 8px 12px; margin-bottom: 6px; border-radius: 4px; font-size: 0.85rem;">
-                    <span style="color: #94a3b8;">[{t_str}]</span> <b>{l.action}</b> — <span style="color: #cbd5e1;">{l.details or ''}</span> (User #{l.user_id or 'N/A'})
+                <div style="background: rgba(15, 23, 42, 0.6); border-left: 3px solid #6366f1; border-radius: 6px; padding: 10px 14px; margin-bottom: 8px; font-size: 0.86rem; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);">
+                    <span style="color: #94a3b8; font-family: monospace;">[{t_str}]</span> <b style="color: #f8fafc;">{l.action}</b> — <span style="color: #cbd5e1;">{l.details or ''}</span> <span style="color: #818cf8;">(User #{l.user_id or 'N/A'})</span>
                 </div>
                 """, unsafe_allow_html=True)

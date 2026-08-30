@@ -6,16 +6,17 @@ from app.db import crud
 
 def render_auth_ui():
     """
-    Renders the authentication interface with Login, Register, Dedicated Email Verification,
-    and Password Reset flows.
+    Renders the modern SaaS authentication interface with Login, Register, Dedicated Email Verification,
+    and Password Reset flows inside a centered glassmorphic card.
     """
     st.markdown("""
-    <div style="text-align:center; padding: 2rem 0 1rem 0;">
-        <h1 style="font-size: 2.4rem; font-weight: 800; background: linear-gradient(135deg, #60a5fa, #a855f7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-            🧠 DocuMind Multi-User RAG
+    <div style="text-align:center; padding: 2.5rem 0 1.5rem 0;">
+        <div style="font-size: 3.2rem; line-height: 1; filter: drop-shadow(0 6px 20px rgba(99, 102, 241, 0.6)); margin-bottom: 10px;">🧠</div>
+        <h1 style="font-size: 2.5rem; font-weight: 900; background: linear-gradient(135deg, #60a5fa 0%, #a855f7 50%, #f43f5e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.03em; margin: 0;">
+            DocuMind AI
         </h1>
-        <p style="color: #94a3b8; font-size: 1.05rem;">
-            Enterprise AI Document Intelligence with Isolated Vector Workspaces
+        <p style="color: #94a3b8; font-size: 1.02rem; margin-top: 6px; font-weight: 500;">
+            Enterprise Multi-Tenant RAG with Isolated Vector Workspaces
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -23,8 +24,9 @@ def render_auth_ui():
     if "auth_view" not in st.session_state:
         st.session_state.auth_view = "tabs"
 
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
+    col_pad_left, col_card, col_pad_right = st.columns([1, 1.8, 1])
+
+    with col_card:
         # ====================================================
         # DEDICATED VERIFICATION SCREEN (After Registration)
         # ====================================================
@@ -32,13 +34,13 @@ def render_auth_ui():
             pending_email = st.session_state.get("pending_reg_email", "")
 
             st.markdown("""
-            <div style="background: rgba(30, 41, 59, 0.6); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 20px;">
-                <div style="font-size: 2.5rem; margin-bottom: 8px;">✉️</div>
-                <h3 style="margin: 0; color: #f8fafc;">Verify Your Email Address</h3>
-                <p style="color: #94a3b8; margin-top: 8px; font-size: 0.95rem;">
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; padding: 24px; text-align: center; margin-bottom: 20px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);">
+                <div style="font-size: 2.6rem; margin-bottom: 8px;">✉️</div>
+                <h3 style="margin: 0; color: #f8fafc; font-size: 1.3rem;">Verify Your Email Address</h3>
+                <p style="color: #94a3b8; margin-top: 8px; font-size: 0.92rem; line-height: 1.5;">
                     Please enter the 6-digit verification code sent to your email inbox.
                 </p>
-                <div style="display: inline-block; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 6px; padding: 4px 12px; color: #f87171; font-size: 0.85rem; margin-top: 6px;">
+                <div style="display: inline-block; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 20px; padding: 4px 14px; color: #f87171; font-size: 0.82rem; font-weight: 600; margin-top: 8px;">
                     ⏱️ Code expires in 10 minutes
                 </div>
             </div>
@@ -46,14 +48,14 @@ def render_auth_ui():
 
             with st.form("dedicated_verify_form", clear_on_submit=False):
                 email_input = st.text_input(
-                    "Your Account Email",
+                    "Account Email",
                     value=pending_email,
                     placeholder="name@company.com",
                     key="dedicated_email_val"
                 ).strip()
 
                 otp_input = st.text_input(
-                    "Enter 6-Digit Verification Code",
+                    "6-Digit Verification Code",
                     placeholder="e.g. 123456",
                     key="dedicated_otp_val",
                     max_chars=10
@@ -120,13 +122,12 @@ def render_auth_ui():
         # TAB 1: LOGIN
         # ----------------------------------------------------
         with tab_login:
-            st.markdown("### Welcome Back")
-            st.caption("Enter your credentials to access your document workspace.")
+            st.markdown("<div style='padding: 8px 0 14px 0;'><h3 style='margin:0; font-size:1.25rem; color:#f8fafc;'>Welcome Back</h3><p style='color:#94a3b8; font-size:0.88rem; margin:4px 0 0 0;'>Enter your credentials to access your document workspace.</p></div>", unsafe_allow_html=True)
 
             with st.form("login_form", clear_on_submit=False):
                 email = st.text_input("Email Address", placeholder="name@company.com", key="login_email").strip()
                 password = st.text_input("Password", type="password", placeholder="••••••••", key="login_pass")
-                submit_login = st.form_submit_button("Sign In", use_container_width=True, type="primary")
+                submit_login = st.form_submit_button("Sign In to Workspace", use_container_width=True, type="primary")
 
             if submit_login:
                 if not email or not password:
@@ -152,15 +153,14 @@ def render_auth_ui():
         # TAB 2: REGISTER
         # ----------------------------------------------------
         with tab_register:
-            st.markdown("### Create an Account")
-            st.caption("Get started immediately with 2 free documents on our shared infrastructure.")
+            st.markdown("<div style='padding: 8px 0 14px 0;'><h3 style='margin:0; font-size:1.25rem; color:#f8fafc;'>Create an Account</h3><p style='color:#94a3b8; font-size:0.88rem; margin:4px 0 0 0;'>Get started with 2 free documents on our shared infrastructure.</p></div>", unsafe_allow_html=True)
 
             with st.form("register_form", clear_on_submit=False):
                 reg_name = st.text_input("Full Name", placeholder="Jane Doe", key="reg_name").strip()
                 reg_email = st.text_input("Email Address", placeholder="jane@example.com", key="reg_email").strip()
                 reg_pass = st.text_input("Password", type="password", placeholder="At least 8 characters (A-Z, a-z, 0-9)", key="reg_pass")
                 reg_pass_conf = st.text_input("Confirm Password", type="password", placeholder="Repeat password", key="reg_pass_conf")
-                submit_reg = st.form_submit_button("Create Account", use_container_width=True, type="primary")
+                submit_reg = st.form_submit_button("Create My Account", use_container_width=True, type="primary")
 
             if submit_reg:
                 if not reg_name or not reg_email or not reg_pass:
@@ -177,7 +177,6 @@ def render_auth_ui():
                             password=reg_pass
                         )
                     if success:
-                        # Switch directly to dedicated verification page
                         st.session_state.pending_reg_email = reg_email.lower().strip()
                         st.session_state.pending_reg_name = reg_name.strip()
                         st.session_state.auth_view = "verify_pending"
@@ -186,14 +185,13 @@ def render_auth_ui():
                         st.error(msg)
 
         # ----------------------------------------------------
-        # TAB 3: VERIFY EMAIL (For direct activation)
+        # TAB 3: VERIFY EMAIL
         # ----------------------------------------------------
         with tab_verify:
-            st.markdown("### Verify Email Address")
-            st.caption("Enter your email and the 6-digit code received in your inbox.")
+            st.markdown("<div style='padding: 8px 0 14px 0;'><h3 style='margin:0; font-size:1.25rem; color:#f8fafc;'>Verify Email Address</h3><p style='color:#94a3b8; font-size:0.88rem; margin:4px 0 0 0;'>Enter your email and the 6-digit code received in your inbox.</p></div>", unsafe_allow_html=True)
 
             with st.form("tab_verify_form", clear_on_submit=False):
-                v_email = st.text_input("Your Account Email", placeholder="name@company.com", key="tab_v_email").strip()
+                v_email = st.text_input("Account Email", placeholder="name@company.com", key="tab_v_email").strip()
                 v_code = st.text_input("6-Digit Verification Code", placeholder="e.g. 123456", key="tab_v_code", max_chars=10).strip()
                 submit_tab_verify = st.form_submit_button("Verify Account", use_container_width=True, type="primary")
 
@@ -225,15 +223,14 @@ def render_auth_ui():
         # TAB 4: PASSWORD RESET
         # ----------------------------------------------------
         with tab_reset:
-            st.markdown("### Reset Password")
-            st.caption("Request a reset code sent to your email and set a new password.")
+            st.markdown("<div style='padding: 8px 0 14px 0;'><h3 style='margin:0; font-size:1.25rem; color:#f8fafc;'>Reset Password</h3><p style='color:#94a3b8; font-size:0.88rem; margin:4px 0 0 0;'>Request a reset code sent to your email and set a new password.</p></div>", unsafe_allow_html=True)
 
             step = st.radio("Step", ["1. Request Reset Code", "2. Submit New Password"], horizontal=True, label_visibility="collapsed")
 
             if step == "1. Request Reset Code":
                 with st.form("req_reset_form"):
-                    reset_email = st.text_input("Your Account Email", placeholder="user@example.com", key="req_reset_email").strip()
-                    submit_req = st.form_submit_button("Send Reset Code", use_container_width=True)
+                    reset_email = st.text_input("Account Email", placeholder="user@example.com", key="req_reset_email").strip()
+                    submit_req = st.form_submit_button("Send Reset Code", use_container_width=True, type="primary")
 
                 if submit_req:
                     if not reset_email:
