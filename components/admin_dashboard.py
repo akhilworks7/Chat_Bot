@@ -32,12 +32,18 @@ def render_admin_dashboard(admin_user: dict):
         "📊 Infrastructure & Metrics", "👥 User Management", "⚙️ System Configuration", "📜 Audit Logs"
     ])
 
+    # Fetch live Pinecone infrastructure stats
+    vec_service = VectorService()
+    pinecone_stats = vec_service.get_namespace_stats(settings.PINECONE_NAMESPACE)
+    live_total_pinecone = pinecone_stats.get("total_index_vectors", 0)
+    ns_map = pinecone_stats.get("namespaces", {})
+
     # ----------------------------------------------------
     # TAB 1: INFRASTRUCTURE & METRICS
     # ----------------------------------------------------
     with admin_tab1:
         st.markdown("### 📈 Overall System KPIs")
-        kpi1, kpi2, kpi3, kpi4, kpi5, kpi6 = st.columns(6)
+        kpi1, kpi2, kpi3, kpi4, kpi5, kpi6, kpi7 = st.columns(7)
 
         with kpi1:
             st.metric("Total Users", metrics["total_users"])
@@ -51,6 +57,8 @@ def render_admin_dashboard(admin_user: dict):
             st.metric("App Shared Users", metrics["app_credential_users"])
         with kpi6:
             st.metric("BYOK Users", metrics["byok_users"])
+        with kpi7:
+            st.metric("Live Pinecone Vectors", f"{live_total_pinecone:,}", delta="Cloud Index")
 
         st.markdown("<hr style='margin: 20px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
 
@@ -65,13 +73,15 @@ def render_admin_dashboard(admin_user: dict):
                 <div style="font-size: 0.9rem; color: #cbd5e1; line-height: 2.0; margin-top: 10px;">
                     <div>Users utilizing shared keys: <b>{app_users}</b></div>
                     <div>Documents processed: <b>{app_docs}</b></div>
-                    <div>Vectors generated & hosted: <b>{app_vecs:,}</b></div>
+                    <div>Live Pinecone Total Vectors: <b>{live_pinecone:,}</b></div>
+                    <div>Database-tracked vectors: <b>{app_vecs:,}</b></div>
                     <div>Total queries routed: <b>{queries:,}</b></div>
                 </div>
             </div>
             """.format(
                 app_users=metrics["app_credential_users"],
                 app_docs=metrics["app_docs_processed"],
+                live_pinecone=live_total_pinecone,
                 app_vecs=metrics["app_vectors"],
                 queries=metrics["total_queries"]
             ), unsafe_allow_html=True)
@@ -120,7 +130,8 @@ def render_admin_dashboard(admin_user: dict):
                 mode_label = "🚀 BYOK" if has_byok else "🟢 Application"
                 mode_color = "#a855f7" if has_byok else "#38bdf8"
                 docs_count = u_usage.documents_uploaded if u_usage else 0
-                vec_count = u_usage.vector_count if u_usage else 0
+                live_user_vecs = ns_map.get(f"user_{u.id}", 0)
+                vec_count = live_user_vecs if live_user_vecs > 0 else (u_usage.vector_count if u_usage else 0)
                 q_count = u_usage.query_count if u_usage else 0
                 last_act = u_usage.last_activity.strftime("%b %d, %Y") if (u_usage and u_usage.last_activity) else "Never"
                 status_pill = "🟢 Active" if u.is_active else "🔴 Deactivated"

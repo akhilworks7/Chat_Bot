@@ -146,7 +146,7 @@ def upsert_user_credentials(
             pinecone_api_key_encrypted=pinecone_api_key_encrypted,
             pinecone_index=pinecone_index,
             groq_api_key_encrypted=groq_api_key_encrypted,
-            groq_model=groq_model or "openai/gpt-oss-120b"
+            groq_model=groq_model or "openai/gpt-oss-20b"
         )
         db.add(creds)
     else:
@@ -194,17 +194,34 @@ def create_document(
     credential_mode: str = "application",
     status: str = "indexed"
 ) -> Document:
-    doc = Document(
-        user_id=user_id,
-        file_name=file_name,
-        file_size=file_size,
-        file_path=file_path,
-        pinecone_namespace=pinecone_namespace,
-        vector_count=vector_count,
-        credential_mode=credential_mode,
-        status=status
-    )
-    db.add(doc)
+    # Check if a tombstone/deleted record exists for this user and filename
+    existing_deleted = db.query(Document).filter(
+        Document.user_id == user_id,
+        Document.file_name == file_name,
+        Document.status == "deleted"
+    ).first()
+
+    if existing_deleted:
+        existing_deleted.status = status
+        existing_deleted.file_size = file_size
+        existing_deleted.file_path = file_path
+        existing_deleted.pinecone_namespace = pinecone_namespace
+        existing_deleted.vector_count = vector_count
+        existing_deleted.credential_mode = credential_mode
+        existing_deleted.updated_at = datetime.datetime.utcnow()
+        doc = existing_deleted
+    else:
+        doc = Document(
+            user_id=user_id,
+            file_name=file_name,
+            file_size=file_size,
+            file_path=file_path,
+            pinecone_namespace=pinecone_namespace,
+            vector_count=vector_count,
+            credential_mode=credential_mode,
+            status=status
+        )
+        db.add(doc)
     db.flush()
 
     # Update user usage statistics
@@ -218,11 +235,20 @@ def create_document(
 
 
 def get_user_documents(db: Session, user_id: int) -> List[Document]:
-    return db.query(Document).filter(Document.user_id == user_id, Document.status != "deleted").order_by(desc(Document.created_at)).all()
+    return db.query(Document).filter(Document.user_id == user_id, Document.status == "indexed").order_by(desc(Document.created_at)).all()
 
 
 def get_user_document_by_name(db: Session, user_id: int, file_name: str) -> Optional[Document]:
-    return db.query(Document).filter(Document.user_id == user_id, Document.file_name == file_name, Document.status != "deleted").first()
+    return db.query(Document).filter(Document.user_id == user_id, Document.file_name == file_name, Document.status == "indexed").first()
+
+
+def get_deleted_user_document_names(db: Session, user_id: int) -> set:
+    """Returns set of file names that have been explicitly deleted by the user."""
+    rows = db.query(Document.file_name).filter(
+        Document.user_id == user_id,
+        Document.status == "deleted"
+    ).all()
+    return {r[0] for r in rows}
 
 
 def get_document_by_id(db: Session, doc_id: int) -> Optional[Document]:
@@ -233,7 +259,10 @@ def delete_document(db: Session, doc_id: int) -> Optional[Document]:
     doc = get_document_by_id(db, doc_id)
     if doc:
         user_id = doc.user_id
-        db.delete(doc)
+        doc.status = "deleted"
+        doc.vector_count = 0
+        doc.file_path = ""
+        doc.updated_at = datetime.datetime.utcnow()
         db.flush()
 
         # Update usage statistics

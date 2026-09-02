@@ -182,3 +182,65 @@ class DocumentService:
                 deleted["extracted_txt"] = False
 
         return deleted
+
+    def text_to_pdf(self, text: str, output_path: str, title: Optional[str] = None) -> str:
+        """
+        Synthesizes a clean, readable multi-page PDF from text using PyMuPDF.
+        Guarantees that documents synced from Pinecone or cloud are downloadable as PDFs.
+        """
+        import pymupdf
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        doc = pymupdf.open()
+        width, height = 595, 842  # Standard A4 (points)
+        margin = 50
+        line_height = 13
+
+        current_page = doc.new_page(width=width, height=height)
+        if title:
+            current_page.insert_text(pymupdf.Point(margin, margin), title, fontsize=14, color=(0.1, 0.2, 0.5))
+            y = margin + 30
+        else:
+            y = margin
+
+        for paragraph in text.split("\n"):
+            words = paragraph.split(" ")
+            current_line = ""
+            for word in words:
+                test_line = f"{current_line} {word}".strip()
+                if len(test_line) * 6.0 > (width - 2 * margin):
+                    current_page.insert_text(pymupdf.Point(margin, y), current_line, fontsize=9.5)
+                    y += line_height
+                    if y > height - margin:
+                        current_page = doc.new_page(width=width, height=height)
+                        y = margin
+                    current_line = word
+                else:
+                    current_line = test_line
+            if current_line:
+                current_page.insert_text(pymupdf.Point(margin, y), current_line, fontsize=9.5)
+                y += line_height
+                if y > height - margin:
+                    current_page = doc.new_page(width=width, height=height)
+                    y = margin
+            y += 4
+            if y > height - margin:
+                current_page = doc.new_page(width=width, height=height)
+                y = margin
+
+        doc.save(output_path)
+        doc.close()
+        return output_path
+
+    def get_extracted_text(self, filename: str) -> Optional[str]:
+        """
+        Retrieves the extracted text from output directory if present on disk.
+        """
+        base_name = Path(filename).stem
+        txt_path = os.path.join(self.output_dir, f"{base_name}.txt")
+        if os.path.exists(txt_path):
+            try:
+                with open(txt_path, "r", encoding="utf-8") as f:
+                    return f.read()
+            except Exception as e:
+                logger.warning(f"Error reading extracted text {txt_path}: {e}")
+        return None

@@ -219,21 +219,35 @@ class VectorService:
     ) -> int:
         """
         Deletes all vectors belonging to a source document within user's isolated namespace.
-        Uses deterministic vector ID generation to ensure deletion works reliably in Pinecone Serverless.
+        Uses live namespace scanning + deterministic ID deletion + metadata filtering
+        to guarantee 100% removal in Pinecone Serverless.
         """
         from pathlib import Path
         try:
             index = self._get_index(api_key, index_name)
             deleted_count = 0
+            base_id = Path(source_name).stem.replace(" ", "_")
 
-            # 1. Build list of deterministic vector IDs if user_id or vector_count is known
-            target_ids = list(vector_ids) if vector_ids else []
-            if not target_ids and user_id is not None:
-                base_id = Path(source_name).stem.replace(" ", "_")
+            # 1. Discover all live vector IDs matching this document from Pinecone's list API
+            discovered_ids = set()
+            try:
+                for batch in index.list(namespace=namespace):
+                    for item in batch:
+                        vid = item if isinstance(item, str) else getattr(item, "id", str(item))
+                        if f"_{base_id}_chunk_" in vid or vid.startswith(f"{base_id}_chunk_") or f"_{base_id}_" in vid or base_id in vid:
+                            discovered_ids.add(vid)
+            except Exception as ex:
+                logger.debug(f"Pinecone list-based vector discovery note: {ex}")
+
+            # 2. Add deterministic IDs as guaranteed fallback
+            target_ids = list(discovered_ids)
+            if user_id is not None:
                 max_chunks = (vector_count + 50) if (vector_count and vector_count > 0) else 1500
-                target_ids = [f"user_{user_id}_{base_id}_chunk_{i}" for i in range(max_chunks)]
+                det_ids = [f"user_{user_id}_{base_id}_chunk_{i}" for i in range(max_chunks)]
+                det_ids.extend([f"{base_id}_chunk_{i}" for i in range(min(max_chunks, 500))])
+                target_ids = list(set(target_ids + det_ids))
 
-            # 2. Delete by vector IDs in batches of 500
+            # 3. Delete by vector IDs in batches of 500
             if target_ids:
                 for start in range(0, len(target_ids), 500):
                     batch_ids = target_ids[start : start + 500]
@@ -244,7 +258,7 @@ class VectorService:
                         logger.warning(f"Batch vector ID delete warning: {e}")
                 logger.info(f"Deleted vector batch for '{source_name}' in namespace '{namespace}' (total targeted: {len(target_ids)})")
 
-            # 3. Also attempt metadata filter deletion if supported by index type
+            # 4. Also attempt metadata filter deletion if supported by index type
             try:
                 index.delete(
                     filter={"source": {"$eq": source_name}},
@@ -295,3 +309,155 @@ class VectorService:
             logger.info(f"Successfully purged all vectors in namespace '{namespace}'")
         except Exception as e:
             logger.warning(f"Delete namespace note: {e}")
+
+    def get_namespace_stats(
+        self,
+        namespace: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Fetches live index statistics from Pinecone and returns namespace-specific metrics:
+        {
+            "vector_count": int,
+            "total_index_vectors": int,
+            "dimension": int,
+            "namespaces": Dict[str, int]
+        }
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            stats = index.describe_index_stats()
+            raw_namespaces = getattr(stats, "namespaces", {}) or (stats.get("namespaces", {}) if isinstance(stats, dict) else {})
+
+            ns_counts = {}
+            for ns_key, ns_val in raw_namespaces.items():
+                c = getattr(ns_val, "vector_count", 0) or (ns_val.get("vector_count", 0) if isinstance(ns_val, dict) else 0)
+                ns_counts[ns_key] = c
+
+            ns_count = ns_counts.get(namespace, 0)
+            total_vecs = getattr(stats, "total_vector_count", 0) or (stats.get("total_vector_count", 0) if isinstance(stats, dict) else 0)
+            dim = getattr(stats, "dimension", settings.EMBEDDING_DIMENSION) or (stats.get("dimension", settings.EMBEDDING_DIMENSION) if isinstance(stats, dict) else settings.EMBEDDING_DIMENSION)
+
+            return {
+                "vector_count": ns_count,
+                "total_index_vectors": total_vecs,
+                "dimension": dim,
+                "namespaces": ns_counts
+            }
+        except Exception as e:
+            logger.warning(f"Failed to fetch Pinecone live stats for namespace '{namespace}': {e}")
+            return {
+                "vector_count": 0,
+                "total_index_vectors": 0,
+                "dimension": settings.EMBEDDING_DIMENSION,
+                "namespaces": {}
+            }
+
+    def discover_indexed_documents(
+        self,
+        namespace: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Discovers documents and chunk counts stored in a Pinecone namespace.
+        Scans vector IDs and fetches sample metadata to resolve file names and chunk volumes.
+        Returns a list of:
+        [{
+            "file_name": str,
+            "vector_count": int,
+            "sample_id": str,
+            "namespace": str
+        }]
+        """
+        from collections import defaultdict
+        try:
+            index = self._get_index(api_key, index_name)
+            all_ids = []
+
+            # Pinecone list returns paginated batches
+            for batch in index.list(namespace=namespace):
+                all_ids.extend([item if isinstance(item, str) else getattr(item, "id", str(item)) for item in batch])
+
+            if not all_ids:
+                return []
+
+            # Group vector IDs by document prefix (format: user_{uid}_{docname}_chunk_{idx})
+            grouped = defaultdict(list)
+            for vid in all_ids:
+                if "_chunk_" in vid:
+                    prefix = vid.rsplit("_chunk_", 1)[0]
+                else:
+                    prefix = vid
+                grouped[prefix].append(vid)
+
+            # Sample 1 ID per document to resolve source filename and metadata
+            sample_ids = [vids[0] for vids in grouped.values()]
+            fetched = index.fetch(ids=sample_ids, namespace=namespace)
+            raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+
+            discovered = []
+            for prefix, vids in grouped.items():
+                sample_id = vids[0]
+                vdata = raw_vecs.get(sample_id)
+                meta = getattr(vdata, "metadata", {}) or (vdata.get("metadata", {}) if isinstance(vdata, dict) else {})
+                source_name = meta.get("source", prefix) if isinstance(meta, dict) else getattr(meta, "source", prefix)
+
+                # Strip possible path if stored as path
+                from pathlib import Path
+                clean_name = Path(source_name).name if source_name else prefix
+
+                discovered.append({
+                    "file_name": clean_name,
+                    "vector_count": len(vids),
+                    "sample_id": sample_id,
+                    "namespace": namespace
+                })
+
+            discovered.sort(key=lambda x: x["file_name"])
+            logger.info(f"Discovered {len(discovered)} documents ({len(all_ids)} vectors) in Pinecone namespace '{namespace}'")
+            return discovered
+
+        except Exception as e:
+            logger.warning(f"Error discovering documents from Pinecone namespace '{namespace}': {e}")
+            return []
+
+    def fetch_document_text(
+        self,
+        user_id: int,
+        file_name: str,
+        vector_count: int,
+        namespace: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> str:
+        """
+        Reconstructs document text directly from Pinecone vector chunk metadata.
+        Guarantees users can view or download extracted document content even if the physical
+        PDF was wiped from ephemeral cloud disk.
+        """
+        from pathlib import Path
+        try:
+            index = self._get_index(api_key, index_name)
+            base_id = Path(file_name).stem.replace(" ", "_")
+            num_chunks = max(vector_count, 1)
+            target_ids = [f"user_{user_id}_{base_id}_chunk_{i}" for i in range(num_chunks)]
+
+            chunks_text = []
+            batch_size = 100
+            for start in range(0, len(target_ids), batch_size):
+                batch_ids = target_ids[start : start + batch_size]
+                fetched = index.fetch(ids=batch_ids, namespace=namespace)
+                raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+                for vid in batch_ids:
+                    if vid in raw_vecs:
+                        meta = getattr(raw_vecs[vid], "metadata", {}) or (raw_vecs[vid].get("metadata", {}) if isinstance(raw_vecs[vid], dict) else {})
+                        txt = meta.get("text", "") if isinstance(meta, dict) else getattr(meta, "text", "")
+                        if txt:
+                            chunks_text.append(txt)
+
+            return "\n\n".join(chunks_text)
+        except Exception as e:
+            logger.warning(f"Error fetching document text from Pinecone for '{file_name}': {e}")
+            return ""

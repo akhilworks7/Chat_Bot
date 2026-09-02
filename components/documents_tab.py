@@ -18,6 +18,99 @@ from components.settings_tab import show_settings_dialog
 logger = get_logger("documents_tab")
 
 
+def reconcile_user_documents_from_pinecone(user_id: int, creds: dict) -> int:
+    """
+    Discovers documents indexed in Pinecone namespace, registers any missing
+    documents into the database, and ensures physical PDF and TXT files are present on disk.
+    """
+    vec_service = VectorService()
+    doc_service = DocumentService()
+    discovered = vec_service.discover_indexed_documents(
+        namespace=creds["namespace"],
+        api_key=creds["pinecone_api_key"],
+        index_name=creds["pinecone_index"]
+    )
+    if not discovered:
+        return 0
+
+    user_doc_dir = doc_service.get_user_doc_dir(user_id)
+    added = 0
+    with get_db() as db:
+        existing = {d.file_name: d for d in crud.get_user_documents(db, user_id)}
+        deleted_names = crud.get_deleted_user_document_names(db, user_id)
+        for item in discovered:
+            fname = item["file_name"]
+            vcount = item["vector_count"]
+
+            # If the user explicitly deleted this document, NEVER resurrect it!
+            if fname in deleted_names:
+                try:
+                    vec_service.delete_by_source(
+                        source_name=fname,
+                        namespace=creds["namespace"],
+                        user_id=user_id,
+                        api_key=creds["pinecone_api_key"],
+                        index_name=creds["pinecone_index"]
+                    )
+                except Exception as ex:
+                    logger.debug(f"Cleanup lingering deleted vectors note: {ex}")
+                continue
+
+            expected_pdf_path = os.path.join(user_doc_dir, fname)
+
+            # Check if physical PDF exists on disk; if missing, synthesize from Pinecone text
+            if not os.path.exists(expected_pdf_path):
+                txt_content = doc_service.get_extracted_text(fname)
+                if not txt_content:
+                    txt_content = vec_service.fetch_document_text(
+                        user_id=user_id,
+                        file_name=fname,
+                        vector_count=vcount,
+                        namespace=creds["namespace"],
+                        api_key=creds["pinecone_api_key"],
+                        index_name=creds["pinecone_index"]
+                    )
+                if txt_content:
+                    doc_service.text_to_pdf(txt_content, expected_pdf_path, title=fname)
+                    txt_path = os.path.join(doc_service.output_dir, f"{Path(fname).stem}.txt")
+                    try:
+                        with open(txt_path, "w", encoding="utf-8") as f:
+                            f.write(txt_content)
+                    except Exception:
+                        pass
+
+            pdf_size = os.path.getsize(expected_pdf_path) if os.path.exists(expected_pdf_path) else (vcount * 1024)
+
+            if fname in existing:
+                doc = existing[fname]
+                if doc.vector_count != vcount:
+                    doc.vector_count = vcount
+                if (not doc.file_path or not os.path.exists(doc.file_path)) and os.path.exists(expected_pdf_path):
+                    doc.file_path = expected_pdf_path
+                    doc.file_size = pdf_size
+            else:
+                crud.create_document(
+                    db=db,
+                    user_id=user_id,
+                    file_name=fname,
+                    file_size=pdf_size,
+                    file_path=expected_pdf_path if os.path.exists(expected_pdf_path) else "",
+                    pinecone_namespace=creds["namespace"],
+                    vector_count=vcount,
+                    credential_mode=creds.get("mode", "application"),
+                    status="indexed"
+                )
+                added += 1
+
+        live_total = sum([d["vector_count"] for d in discovered])
+        u_stat = crud.get_or_create_usage_statistics(db, user_id)
+        if u_stat.vector_count != live_total:
+            u_stat.vector_count = live_total
+            db.flush()
+
+    return added
+
+
 def render_documents_tab(user: dict):
     """
     Renders the document management tab: PDF upload, initial quota limit enforcement,
@@ -36,6 +129,21 @@ def render_documents_tab(user: dict):
         user_docs = crud.get_user_documents(db=db, user_id=user_id)
         max_size_mb = crud.get_int_setting(db=db, key="MAX_UPLOAD_SIZE_MB", default=settings.MAX_UPLOAD_SIZE_MB)
 
+    # Fetch live Pinecone namespace stats
+    pinecone_stats = vec_service.get_namespace_stats(
+        namespace=creds["namespace"],
+        api_key=creds["pinecone_api_key"],
+        index_name=creds["pinecone_index"]
+    )
+    live_vec_count = pinecone_stats.get("vector_count", 0)
+
+    # Self-healing auto-reconciliation: If DB has 0 docs but Pinecone has vectors, auto-sync
+    if len(user_docs) == 0 and live_vec_count > 0:
+        recovered = reconcile_user_documents_from_pinecone(user_id, creds)
+        if recovered > 0:
+            with get_db() as db:
+                user_docs = crud.get_user_documents(db=db, user_id=user_id)
+
     is_byok = creds.get("is_byok", False)
     allowed = allowance.get("allowed", True)
     used = allowance.get("used", 0)
@@ -44,18 +152,18 @@ def render_documents_tab(user: dict):
     # ----------------------------------------------------
     # SECTION 1: HERO METRICS & OVERVIEW
     # ----------------------------------------------------
-    total_vectors = sum([d.vector_count for d in user_docs])
+    total_vectors = live_vec_count if live_vec_count > 0 else sum([d.vector_count for d in user_docs])
     total_storage_mb = round(sum([d.file_size for d in user_docs]) / (1024 * 1024), 2)
 
     col_m1, col_m2, col_m3, col_m4 = st.columns(4)
     with col_m1:
         st.metric(label="📄 Indexed Docs", value=f"{len(user_docs)}", delta="Unlimited" if is_byok else f"{used}/{limit} Free")
     with col_m2:
-        st.metric(label="📦 Vectors", value=f"{total_vectors:,}", delta=f"ns: user_{user_id}")
+        st.metric(label="📦 Vectors", value=f"{total_vectors:,}", delta=f"🟢 Pinecone: user_{user_id}")
     with col_m3:
         st.metric(label="💾 Storage", value=f"{total_storage_mb} MB", delta="Raw PDFs")
     with col_m4:
-        st.metric(label="⚡ Engine", value="BYOK" if is_byok else "Shared", delta=creds.get("groq_model", "LLaMA-3.3")[:12])
+        st.metric(label="⚡ Engine", value="BYOK" if is_byok else "Shared", delta=creds.get("groq_model", "openai/gpt-oss-20b")[:16])
 
     st.markdown("<div style='margin-top: 14px;'></div>", unsafe_allow_html=True)
 
@@ -245,10 +353,18 @@ def render_documents_tab(user: dict):
     # ----------------------------------------------------
     st.markdown("<hr style='margin: 20px 0 16px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
     
-    col_v_title, col_v_purge, col_v_search = st.columns([3.5, 1.8, 2.2], vertical_alignment="center")
+    col_v_title, col_v_sync, col_v_purge, col_v_search = st.columns([3.2, 1.4, 1.4, 2.0], vertical_alignment="center")
     with col_v_title:
         st.markdown(f"### 📚 Knowledge Vault <span style='font-size:0.85rem; color:#94a3b8; font-weight:400;'>({len(user_docs)} files)</span>", unsafe_allow_html=True)
-    
+
+    with col_v_sync:
+        if st.button("🔄 Sync Pinecone", key="btn_sync_pinecone", use_container_width=True, help="Scan Pinecone cloud index and recover all indexed files into workspace"):
+            with st.spinner("Scanning Pinecone index..."):
+                synced_count = reconcile_user_documents_from_pinecone(user_id, creds)
+            st.toast(f"✅ Synced {synced_count} document(s) from Pinecone!")
+            time.sleep(0.5)
+            st.rerun()
+
     with col_v_purge:
         if st.button("🧹 Purge Vectors", key="btn_purge_ns", use_container_width=True, help="Wipe stale vectors from your Pinecone namespace"):
             try:
@@ -294,8 +410,10 @@ def render_documents_tab(user: dict):
             is_doc_byok = doc.credential_mode == "byok"
             mode_badge = "🚀 BYOK" if is_doc_byok else "🟢 Shared"
             mode_style = "background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.35);" if is_doc_byok else "background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.35);"
+            file_exists = os.path.exists(doc.file_path) if doc.file_path else False
+            size_label = f"💾 <b>{size_mb}</b> MB" if file_exists else "☁️ <b style='color:#38bdf8;'>Cloud Preserved</b>"
 
-            col_card_info, col_card_dl, col_card_del = st.columns([5.2, 1.1, 1.1], vertical_alignment="center")
+            col_card_info, col_card_pdf, col_card_txt, col_card_del = st.columns([4.2, 1.4, 1.4, 1.0], vertical_alignment="center")
 
             with col_card_info:
                 st.markdown(f"""
@@ -310,29 +428,97 @@ def render_documents_tab(user: dict):
                     </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-top: 6px; font-size: 0.76rem; color: #94a3b8;">
                         <span>📦 <b>{doc.vector_count}</b> chunks</span>
-                        <span>💾 <b>{size_mb}</b> MB</span>
+                        <span>{size_label}</span>
                         <span>📅 {created_str}</span>
                         <span>🏷️ <code style="color: #cbd5e1; font-size: 0.70rem; background: rgba(30, 41, 59, 0.8); padding: 1px 5px; border-radius: 4px;">{doc.pinecone_namespace}</code></span>
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            with col_card_dl:
-                file_exists = os.path.exists(doc.file_path) if doc.file_path else False
+            with col_card_pdf:
+                # 1. Provide Original Document (PDF) Download
+                pdf_data = None
                 if file_exists:
-                    with open(doc.file_path, "rb") as f:
-                        file_data = f.read()
+                    try:
+                        with open(doc.file_path, "rb") as f:
+                            pdf_data = f.read()
+                    except Exception:
+                        pdf_data = None
+
+                if not pdf_data:
+                    # Auto-synthesize PDF from text if missing on ephemeral cloud disk
+                    txt_content = doc_service.get_extracted_text(doc.file_name)
+                    if not txt_content:
+                        txt_content = vec_service.fetch_document_text(
+                            user_id=user_id,
+                            file_name=doc.file_name,
+                            vector_count=doc.vector_count,
+                            namespace=doc.pinecone_namespace,
+                            api_key=creds["pinecone_api_key"],
+                            index_name=creds["pinecone_index"]
+                        )
+                    if txt_content:
+                        target_pdf = os.path.join(doc_service.get_user_doc_dir(user_id), doc.file_name)
+                        doc_service.text_to_pdf(txt_content, target_pdf, title=doc.file_name)
+                        try:
+                            with open(target_pdf, "rb") as f:
+                                pdf_data = f.read()
+                            with get_db() as db:
+                                d_rec = crud.get_document_by_id(db, doc.id)
+                                if d_rec:
+                                    d_rec.file_path = target_pdf
+                                    d_rec.file_size = len(pdf_data)
+                                    db.flush()
+                        except Exception:
+                            pass
+
+                if pdf_data:
                     st.download_button(
-                        label="📥 Download",
-                        data=file_data,
+                        label="📥 PDF",
+                        data=pdf_data,
                         file_name=doc.file_name,
                         mime="application/pdf",
-                        key=f"dl_doc_{doc.id}",
-                        help=f"Download {doc.file_name}",
+                        key=f"dl_pdf_{doc.id}",
+                        help=f"Download original {doc.file_name}",
                         use_container_width=True
                     )
                 else:
                     st.button("📥 N/A", key=f"dl_disabled_{doc.id}", disabled=True, use_container_width=True)
+
+            with col_card_txt:
+                # 2. Provide Extracted Text Viewer & Download
+                with st.popover("📄 Text", use_container_width=True, help=f"View and download extracted text for {doc.file_name}"):
+                    txt_data = doc_service.get_extracted_text(doc.file_name)
+                    if not txt_data:
+                        with st.spinner("Fetching text..."):
+                            txt_data = vec_service.fetch_document_text(
+                                user_id=user_id,
+                                file_name=doc.file_name,
+                                vector_count=doc.vector_count,
+                                namespace=doc.pinecone_namespace,
+                                api_key=creds["pinecone_api_key"],
+                                index_name=creds["pinecone_index"]
+                            )
+                        if txt_data:
+                            txt_save_path = os.path.join(doc_service.output_dir, f"{Path(doc.file_name).stem}.txt")
+                            try:
+                                with open(txt_save_path, "w", encoding="utf-8") as f:
+                                    f.write(txt_data)
+                            except Exception:
+                                pass
+
+                    if txt_data:
+                        st.download_button(
+                            label="📥 Download .txt",
+                            data=txt_data,
+                            file_name=f"{Path(doc.file_name).stem}.txt",
+                            mime="text/plain",
+                            key=f"dl_txt_{doc.id}",
+                            use_container_width=True
+                        )
+                        st.text_area("Extracted Content", value=txt_data[:3000] + ("..." if len(txt_data) > 3000 else ""), height=220, disabled=True)
+                    else:
+                        st.info("No text content available for this file.")
 
             with col_card_del:
                 if st.button("🗑️ Delete", key=f"del_doc_{doc.id}", help=f"Delete {doc.file_name}", use_container_width=True):

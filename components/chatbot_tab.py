@@ -10,10 +10,66 @@ from app.services.llm_service import GroqQuotaException, GroqAuthException
 from app.services.credential_service import CredentialService
 
 
+def render_source_citations(sources: list, elapsed_ms: float = None, model_name: str = None):
+    """
+    Renders clean, prominent source document references directly below the chatbot response.
+    Explicitly clarifies whether the answer came from uploaded vault documents or the AI model's general knowledge base.
+    """
+    model_disp = model_name or "Groq LLM"
+    doc_sources = [s for s in sources if s.get("source") and not s.get("is_ai_knowledge")] if sources else []
+
+    if not doc_sources:
+        st.markdown(f"""
+        <div style="margin-top: 10px; margin-bottom: 6px; padding: 10px 14px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(234, 179, 8, 0.35); border-radius: 10px;">
+            <div style="font-size: 0.76rem; font-weight: 700; color: #fde047; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                <span>🧠</span> Source: AI General Knowledge Base ({model_disp})
+            </div>
+            <div style="font-size: 0.82rem; color: #cbd5e1; line-height: 1.45;">
+                <b>Origin of information:</b> This answer was generated from the AI model's internal pre-trained knowledge base. <b>No matching uploaded document was found in your Knowledge Vault</b> (the document is either not uploaded or was deleted).
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if elapsed_ms:
+            st.caption(f"⏱️ Generated in {elapsed_ms}ms via `{model_disp}` (Conversational / AI Knowledge Base)")
+        return
+
+    unique_sources = sorted(list({s.get("source", "Document") for s in doc_sources if s.get("source")}))
+    
+    badges_html = "".join([
+        f'<span style="background: rgba(99, 102, 241, 0.18); color: #c7d2fe; border: 1px solid rgba(99, 102, 241, 0.35); padding: 3px 10px; border-radius: 12px; font-size: 0.78rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;">📄 {src}</span>'
+        for src in unique_sources
+    ])
+
+    st.markdown(f"""
+    <div style="margin-top: 10px; margin-bottom: 6px; padding: 10px 14px; background: rgba(15, 23, 42, 0.65); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px;">
+        <div style="font-size: 0.76rem; font-weight: 700; color: #a5b4fc; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+            <span>📌</span> Sources & References ({len(unique_sources)} document{'' if len(unique_sources) == 1 else 's'}):
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            {badges_html}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.expander(f"🔍 Inspect {len(doc_sources)} Retrieved Context Passages & Scores", expanded=False):
+        for s in doc_sources:
+            score = round(s.get("score", 0.0) * 100, 1) if s.get("score") else "N/A"
+            chunk_id = s.get("chunk_id", "N/A")
+            st.markdown(f"""
+            <div class="source-card">
+                <span class="source-badge">📄 {s.get('source', 'Unknown')}</span> · <b>Chunk #{chunk_id}</b> · <i>Relevance: {score}%</i>
+                <p style="margin-top:6px; color:#cbd5e1; font-size:0.85rem; line-height:1.5;">{s.get('text', '')}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+    if elapsed_ms and model_name:
+        st.caption(f"⏱️ Generated in {elapsed_ms}ms via `{model_name}` · Grounded on Pinecone namespace")
+
+
 def render_chatbot_tab(user: dict):
     """
     Renders the conversational RAG chatbot tab with a stable fixed input box,
-    real-time streaming responses, source citation cards, and friendly quota error handling.
+    real-time streaming responses, prominent source citations, and friendly quota error handling.
     Fully responsive across mobile, tablet, and desktop viewports.
     """
     user_id = user["id"]
@@ -27,15 +83,15 @@ def render_chatbot_tab(user: dict):
         db_history = crud.get_chat_history(db=db, user_id=user_id, session_id=session_id, limit=50)
 
     AVAILABLE_MODELS = [
-        "openai/gpt-oss-120b",
         "openai/gpt-oss-20b",
+        "openai/gpt-oss-120b",
         "qwen/qwen3.8-27b",
         "qwen/qwen3.6-27b",
         "groq/compound-mini"
     ]
 
     # Initialize selected model in session state
-    default_model = creds.get("groq_model", "openai/gpt-oss-120b")
+    default_model = creds.get("groq_model", "openai/gpt-oss-20b")
     if "selected_groq_model" not in st.session_state or st.session_state.selected_groq_model not in AVAILABLE_MODELS:
         st.session_state.selected_groq_model = default_model if default_model in AVAILABLE_MODELS else AVAILABLE_MODELS[0]
 
@@ -185,22 +241,14 @@ def render_chatbot_tab(user: dict):
         for msg in db_history:
             with st.chat_message(msg.role):
                 st.markdown(msg.content)
-                if msg.role == "assistant" and msg.sources_json:
-                    try:
-                        sources = json.loads(msg.sources_json)
-                        if sources:
-                            with st.expander(f"📚 Retrieved Sources ({len(sources)} chunks)", expanded=False):
-                                for s in sources:
-                                    score = round(s.get("score", 0.0) * 100, 1) if s.get("score") else "N/A"
-                                    chunk_id = s.get("chunk_id", "N/A")
-                                    st.markdown(f"""
-                                    <div class="source-card">
-                                        <span class="source-badge">📄 {s.get('source', 'Unknown')}</span> · <b>Chunk #{chunk_id}</b> · <i>Score: {score}%</i>
-                                        <p style="margin-top:6px; color:#cbd5e1; font-size:0.85rem; line-height:1.5;">{s.get('text', '')}</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                    except Exception:
-                        pass
+                if msg.role == "assistant":
+                    sources = []
+                    if msg.sources_json:
+                        try:
+                            sources = json.loads(msg.sources_json)
+                        except Exception:
+                            sources = []
+                    render_source_citations(sources, elapsed_ms=msg.response_time_ms)
 
         # Anchor at bottom of messages
         st.markdown("<div id='chat-bottom' style='height: 1px;'></div>", unsafe_allow_html=True)
@@ -268,7 +316,7 @@ def render_chatbot_tab(user: dict):
                         documents = retrieval.get("documents", [])
                         context = retrieval.get("context", "")
 
-                        active_model = st.session_state.get("selected_groq_model", creds.get("groq_model", "openai/gpt-oss-120b"))
+                        active_model = st.session_state.get("selected_groq_model", creds.get("groq_model", "openai/gpt-oss-20b"))
 
                         # Stream LLM answer tokens in real-time
                         stream_gen = rag_service.llm_service.generate_answer_stream(
@@ -280,22 +328,7 @@ def render_chatbot_tab(user: dict):
                         full_answer = st.write_stream(stream_gen)
 
                         elapsed_ms = round((time.time() - start_t) * 1000, 2)
-                        
-                        if documents:
-                            st.caption(f"⏱️ Generated in {elapsed_ms}ms via `{active_model}` & Pinecone ({len(documents)} source chunks)")
-                            # Display source citations
-                            with st.expander(f"📚 Retrieved Sources ({len(documents)} chunks)", expanded=False):
-                                for s in documents:
-                                    score = round(s.get("score", 0.0) * 100, 1) if s.get("score") else "N/A"
-                                    chunk_id = s.get("chunk_id", "N/A")
-                                    st.markdown(f"""
-                                    <div class="source-card">
-                                        <span class="source-badge">📄 {s.get('source', 'Unknown')}</span> · <b>Chunk #{chunk_id}</b> · <i>Score: {score}%</i>
-                                        <p style="margin-top:6px; color:#cbd5e1; font-size:0.85rem; line-height:1.5;">{s.get('text', '')}</p>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                        else:
-                            st.caption(f"⏱️ Generated in {elapsed_ms}ms via `{active_model}` (Conversational Response)")
+                        render_source_citations(documents, elapsed_ms=elapsed_ms, model_name=active_model)
 
                         # Final smooth scroll after response stream completes
                         st.markdown("""
@@ -335,13 +368,14 @@ def render_chatbot_tab(user: dict):
                             role="user",
                             content=prompt
                         )
+                        sources_to_save = documents if documents else [{"source": f"AI General Knowledge ({active_model})", "is_ai_knowledge": True}]
                         crud.add_chat_message(
                             db=db,
                             user_id=user_id,
                             session_id=session_id,
                             role="assistant",
                             content=full_answer,
-                            sources=documents,
+                            sources=sources_to_save,
                             response_time_ms=elapsed_ms
                         )
 

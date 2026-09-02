@@ -7,8 +7,8 @@ from app.services.audit_service import AuditService
 from app.config import settings
 
 AVAILABLE_GROQ_MODELS = [
-    "openai/gpt-oss-120b",
     "openai/gpt-oss-20b",
+    "openai/gpt-oss-120b",
     "qwen/qwen3.8-27b",
     "qwen/qwen3.6-27b",
     "groq/compound-mini",
@@ -34,7 +34,7 @@ def render_settings_content(user: dict, in_dialog: bool = False):
     existing_pinecone_key = crypto.decrypt(creds.pinecone_api_key_encrypted) if (creds and creds.pinecone_api_key_encrypted) else ""
     existing_pinecone_index = creds.pinecone_index if (creds and creds.pinecone_index) else ""
     existing_groq_key = crypto.decrypt(creds.groq_api_key_encrypted) if (creds and creds.groq_api_key_encrypted) else ""
-    existing_groq_model = creds.groq_model if (creds and creds.groq_model) else "openai/gpt-oss-120b"
+    existing_groq_model = creds.groq_model if (creds and creds.groq_model) else "openai/gpt-oss-20b"
 
     # Status Banner
     if is_byok:
@@ -149,7 +149,7 @@ def render_settings_content(user: dict, in_dialog: bool = False):
             st.markdown("""
             1. Visit [Groq Console](https://console.groq.com/keys) and log in.
             2. Click **Create API Key** and copy the `gsk_...` key.
-            3. Paste it above and choose your preferred model (e.g. `openai/gpt-oss-120b`).
+            3. Paste it above and choose your preferred model (e.g. `openai/gpt-oss-20b`).
             """)
 
     # ----------------------------------------------------
@@ -188,7 +188,7 @@ def render_settings_content(user: dict, in_dialog: bool = False):
         p_val = st.session_state.get("cfg_pinecone_key", "").strip()
         p_idx = st.session_state.get("cfg_pinecone_index", "").strip()
         g_val = st.session_state.get("cfg_groq_key", "").strip()
-        g_mod = st.session_state.get("cfg_groq_model", "openai/gpt-oss-120b")
+        g_mod = st.session_state.get("cfg_groq_model", "openai/gpt-oss-20b")
 
         if not p_val or not g_val or not p_idx:
             st.error("Please provide both Pinecone and Groq API keys along with index name.")

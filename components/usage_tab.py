@@ -2,11 +2,13 @@ import streamlit as st
 from app.db.database import get_db
 from app.db import crud
 from app.services.credential_service import CredentialService
+from app.services.vector_service import VectorService
 
 
 def render_usage_tab(user: dict):
     """
-    Renders user's personal usage statistics and infrastructure consumption details.
+    Renders user's personal usage statistics and infrastructure consumption details,
+    synchronizing live vector counts directly from Pinecone.
     """
     user_id = user["id"]
 
@@ -15,15 +17,31 @@ def render_usage_tab(user: dict):
         creds = CredentialService.get_credentials(user_id=user_id, db=db)
         allowance = CredentialService.check_upload_allowance(user_id=user_id, db=db)
 
+    # Fetch live Pinecone vector count directly from cloud index
+    vec_service = VectorService()
+    pinecone_stats = vec_service.get_namespace_stats(
+        namespace=creds.get("namespace", f"user_{user_id}"),
+        api_key=creds.get("pinecone_api_key"),
+        index_name=creds.get("pinecone_index")
+    )
+    live_vecs_count = pinecone_stats.get("vector_count", 0)
+
+    # Auto-synchronize live count into DB usage statistics if mismatch exists
+    if live_vecs_count > 0 and (not usage or usage.vector_count != live_vecs_count):
+        with get_db() as db:
+            u_stat = crud.get_or_create_usage_statistics(db, user_id)
+            u_stat.vector_count = live_vecs_count
+            db.flush()
+
     is_byok = creds.get("is_byok", False)
     docs_count = usage.documents_uploaded if usage else 0
     storage_mb = round((usage.storage_used or 0) / (1024 * 1024), 2) if usage else 0.0
-    vecs_count = usage.vector_count if usage else 0
+    vecs_count = live_vecs_count if live_vecs_count > 0 else (usage.vector_count if usage else 0)
     queries_count = usage.query_count if usage else 0
     last_act = usage.last_activity.strftime("%b %d, %Y %H:%M") if (usage and usage.last_activity) else "Never"
 
     st.markdown("### 📊 My Workspace Usage & Analytics")
-    st.caption("Track your indexed document volume, vector representations, and query activity.")
+    st.caption("Track your indexed document volume, live Pinecone vector representations, and query activity.")
 
     # KPI Metric Cards
     col1, col2, col3, col4 = st.columns(4)
@@ -37,7 +55,7 @@ def render_usage_tab(user: dict):
         st.metric(
             label="Vectors in Namespace",
             value=f"{vecs_count:,}",
-            delta=f"ns: user_{user_id}"
+            delta=f"🟢 Pinecone: user_{user_id}"
         )
     with col3:
         st.metric(

@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Groq LLM Configuration (Shared Infrastructure)
     GROQ_API_KEY: str = ""
-    GROQ_MODEL: str = "openai/gpt-oss-120b"
+    GROQ_MODEL: str = "openai/gpt-oss-20b"
     GROQ_TEMPERATURE: float = 0.0
 
 
@@ -56,6 +56,7 @@ class Settings(BaseSettings):
 
     # RAG Retrieval Configuration
     TOP_K: int = 4
+    SIMILARITY_THRESHOLD: float = 0.45
 
 
     # Directory Paths

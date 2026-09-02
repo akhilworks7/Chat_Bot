@@ -75,9 +75,9 @@ User Message:
 {question}
 
 Instructions:
-1. If the user's message is asking about information in their uploaded documents, answer accurately and factually using the provided context. If the context contains partial information, share what is mentioned.
-2. If the user's message is a greeting, polite pleasantry (e.g., 'hi', 'hello', 'how are you', 'thank you'), casual conversation, or general query not covered in the context, respond politely, naturally, and helpfully as DocuMind AI.
-3. If the user asks a question expecting document-specific facts that are completely absent from the context, politely clarify that the provided documents do not contain that information, but offer to help with general questions or other topics.
+1. If the provided context contains information relevant to the user's question, base your answer on the context and cite the source document name(s) (e.g. `[Source: filename.pdf]`).
+2. If the user's question cannot be answered from the provided context (or is a general concept, technical explanation, or greeting), answer the question directly, accurately, and helpfully. Do NOT output negative disclaimers like "The documents you shared do not contain..." unless the user specifically asked what their uploaded document says.
+3. Only cite a source document if information from that document was actually used in formulating your response.
 4. Format your response cleanly using Markdown (headers, bullet points, bold text).
 
 Answer:"""

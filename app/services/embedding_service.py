@@ -34,16 +34,50 @@ class EmbeddingService:
         if self._model is None:
             with self._lock:
                 if self._model is None:
+                    import os
+                    os.environ["TOKENIZERS_PARALLELISM"] = "false"
+                    os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+
                     import torch
                     from sentence_transformers import SentenceTransformer
 
-                    import os
                     self.device = "cuda" if torch.cuda.is_available() else "cpu"
                     if self.device == "cpu":
                         torch.set_num_threads(min(4, os.cpu_count() or 2))
+
                     logger.info(f"Loading embedding model '{self.model_name}' on device: {self.device}")
+                    
+                    local_model_path = os.path.join(os.getcwd(), "data", "models", "all-MiniLM-L6-v2")
+
+                    # Tier 1: Load directly from local project directory (instant offline load ~0.2s)
+                    if os.path.isdir(local_model_path):
+                        try:
+                            self._model = SentenceTransformer(local_model_path, device=self.device)
+                            logger.info("Embedding model loaded successfully from local directory (offline mode).")
+                            return self._model
+                        except Exception as e:
+                            logger.warning(f"Could not load from local directory {local_model_path}: {e}")
+
+                    # Tier 2: Try HuggingFace cache with local_files_only=True (bypasses HF Hub rate limits)
+                    try:
+                        self._model = SentenceTransformer(self.model_name, device=self.device, local_files_only=True)
+                        logger.info("Embedding model loaded successfully from HuggingFace local cache.")
+                        return self._model
+                    except Exception:
+                        pass
+
+                    # Tier 3: Fallback to remote download (first run on clean cloud container)
+                    logger.info(f"Model not found in local cache; downloading from HuggingFace Hub...")
                     self._model = SentenceTransformer(self.model_name, device=self.device)
                     logger.info("Embedding model loaded successfully.")
+
+                    # Cache to local directory for future instantaneous reloads
+                    try:
+                        os.makedirs(os.path.dirname(local_model_path), exist_ok=True)
+                        self._model.save(local_model_path)
+                    except Exception:
+                        pass
+
         return self._model
 
     @classmethod

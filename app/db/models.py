@@ -50,7 +50,7 @@ class UserCredential(Base):
     pinecone_api_key_encrypted = Column(Text, nullable=True)
     pinecone_index = Column(String(255), nullable=True)
     groq_api_key_encrypted = Column(Text, nullable=True)
-    groq_model = Column(String(100), default="openai/gpt-oss-120b", nullable=True)
+    groq_model = Column(String(100), default="openai/gpt-oss-20b", nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow, nullable=False)
 
