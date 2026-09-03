@@ -53,6 +53,15 @@ class CloudSyncService:
 
         with cls._backup_lock:
             try:
+                # 1. Flush SQLite WAL journal into main database file so all committed users/data are present
+                try:
+                    import sqlite3
+                    conn = sqlite3.connect(db_path, timeout=10)
+                    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    conn.close()
+                except Exception as ce:
+                    logger.warning(f"Note on WAL checkpoint before backup: {ce}")
+
                 from app.services.vector_service import VectorService
                 vs = VectorService()
                 index = vs._get_index(api_key=api_key, index_name=index_name)

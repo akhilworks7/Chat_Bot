@@ -628,6 +628,46 @@ class VectorService:
             logger.warning(f"Note on deleting user credentials from cloud: {e}")
             return False
 
+    def delete_user_account_from_cloud(
+        self,
+        user_email: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> bool:
+        """
+        Removes a deleted user account and their credentials from Pinecone Cloud.
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            clean_email = user_email.lower().strip()
+            target_ids = [f"user_account_{clean_email}", f"user_creds_{clean_email}"]
+            try:
+                index.delete(ids=target_ids, namespace="__system_config__")
+            except Exception:
+                pass
+
+            # Update registry
+            fetched = index.fetch(ids=["documind_users_registry"], namespace="__system_config__")
+            raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+            if "documind_users_registry" in raw_vecs:
+                meta = getattr(raw_vecs["documind_users_registry"], "metadata", {}) or {}
+                raw_list = meta.get("emails", [])
+                emails = [e for e in raw_list if e != clean_email]
+                dim = getattr(settings, "EMBEDDING_DIMENSION", 384)
+                index.upsert(
+                    vectors=[{
+                        "id": "documind_users_registry",
+                        "values": [0.001] * dim,
+                        "metadata": {"emails": emails}
+                    }],
+                    namespace="__system_config__"
+                )
+            logger.info(f"Deleted user account '{clean_email}' from Pinecone Cloud.")
+            return True
+        except Exception as e:
+            logger.warning(f"Note on deleting user account from cloud: {e}")
+            return False
+
     def _register_cloud_user_email(self, email: str, api_key: Optional[str] = None, index_name: Optional[str] = None):
         """Maintains the active list of user emails in the cloud catalog."""
         try:

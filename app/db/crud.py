@@ -697,5 +697,17 @@ def seed_initial_data(db: Session):
 
         # 5. Hydrate all registered users and their BYOK credentials from Pinecone Cloud
         VectorService().sync_all_users_from_cloud(db)
+
+        # 6. Ensure all current local users are safely registered in Pinecone Cloud
+        for u in db.query(User).all():
+            try:
+                VectorService().save_user_account_to_cloud(
+                    email=u.email,
+                    name=u.name,
+                    password_hash=u.password_hash,
+                    role=u.role
+                )
+            except Exception:
+                pass
     except Exception as e:
         logger.warning(f"Note on hydrating system configuration from cloud storage: {e}")

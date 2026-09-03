@@ -300,11 +300,24 @@ class AuthService:
         )
 
         db.commit()
+        # 1. Persist user account directly to Pinecone Cloud namespace __system_config__
+        try:
+            from app.services.vector_service import VectorService
+            VectorService().save_user_account_to_cloud(
+                email=user.email,
+                name=user.name,
+                password_hash=user.password_hash,
+                role=user.role
+            )
+        except Exception as ex:
+            logger.warning(f"Note on saving user account to cloud registry: {ex}")
+
+        # 2. Persist full database snapshot to cloud
         try:
             from app.services.cloud_sync_service import CloudSyncService
-            CloudSyncService.backup_database_to_cloud()
-        except Exception:
-            pass
+            CloudSyncService.backup_database_to_cloud(force=True)
+        except Exception as ex:
+            logger.warning(f"Note on cloud backup after registration: {ex}")
 
         return True, "Email verified and account activated successfully!", user
 
@@ -354,6 +367,24 @@ class AuthService:
             user_id=user.id,
             details=f"User {user.email} registered account directly"
         )
+
+        db.commit()
+        try:
+            from app.services.vector_service import VectorService
+            VectorService().save_user_account_to_cloud(
+                email=user.email,
+                name=user.name,
+                password_hash=user.password_hash,
+                role=user.role
+            )
+        except Exception as ex:
+            logger.warning(f"Note on saving user account to cloud registry: {ex}")
+
+        try:
+            from app.services.cloud_sync_service import CloudSyncService
+            CloudSyncService.backup_database_to_cloud(force=True)
+        except Exception as ex:
+            logger.warning(f"Note on cloud backup after direct registration: {ex}")
 
         return True, "Account created successfully!", user
 
@@ -500,8 +531,19 @@ class AuthService:
         )
         db.commit()
         try:
+            from app.services.vector_service import VectorService
+            VectorService().save_user_account_to_cloud(
+                email=user.email,
+                name=user.name,
+                password_hash=user.password_hash,
+                role=user.role
+            )
+        except Exception as ex:
+            logger.warning(f"Note on updating user account in cloud registry: {ex}")
+
+        try:
             from app.services.cloud_sync_service import CloudSyncService
-            CloudSyncService.backup_database_to_cloud()
+            CloudSyncService.backup_database_to_cloud(force=True)
         except Exception:
             pass
 
@@ -562,10 +604,16 @@ class AuthService:
         crud.delete_user(db, user_id)
         db.commit()
 
-        # 5. Immediately sync deletion across cloud storage so it is removed everywhere
+        # 5. Immediately remove from Pinecone Cloud registry and update snapshot
+        try:
+            from app.services.vector_service import VectorService
+            VectorService().delete_user_account_from_cloud(user_email=user_email)
+        except Exception as ex:
+            logger.warning(f"Note on deleting user account from cloud registry: {ex}")
+
         try:
             from app.services.cloud_sync_service import CloudSyncService
-            CloudSyncService.backup_database_to_cloud()
+            CloudSyncService.backup_database_to_cloud(force=True)
         except Exception:
             pass
 
