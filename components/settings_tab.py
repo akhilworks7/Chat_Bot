@@ -31,10 +31,29 @@ def render_settings_content(user: dict, in_dialog: bool = False):
 
     is_byok = current_status.get("is_byok", False)
 
-    existing_pinecone_key = crypto.decrypt(creds.pinecone_api_key_encrypted) if (creds and creds.pinecone_api_key_encrypted) else ""
-    existing_pinecone_index = creds.pinecone_index if (creds and creds.pinecone_index) else ""
-    existing_groq_key = crypto.decrypt(creds.groq_api_key_encrypted) if (creds and creds.groq_api_key_encrypted) else ""
-    existing_groq_model = creds.groq_model if (creds and creds.groq_model) else "openai/gpt-oss-20b"
+    # Pre-fill with custom BYOK credentials if configured; otherwise pre-fill with active system credentials
+    existing_pinecone_key = (
+        crypto.decrypt(creds.pinecone_api_key_encrypted)
+        if (creds and creds.pinecone_api_key_encrypted)
+        else current_status.get("pinecone_api_key", "")
+    )
+    existing_pinecone_index = (
+        creds.pinecone_index
+        if (creds and creds.pinecone_index)
+        else current_status.get("pinecone_index", getattr(settings, "PINECONE_INDEX_NAME", "pdf-rag1-index"))
+    )
+    existing_groq_key = (
+        crypto.decrypt(creds.groq_api_key_encrypted)
+        if (creds and creds.groq_api_key_encrypted)
+        else current_status.get("groq_api_key", "")
+    )
+    existing_groq_model = (
+        creds.groq_model
+        if (creds and creds.groq_model)
+        else current_status.get("groq_model", "openai/gpt-oss-20b")
+    )
+
+    is_admin = (user.get("role") == "admin")
 
     # Status Banner
     if is_byok:
@@ -42,6 +61,13 @@ def render_settings_content(user: dict, in_dialog: bool = False):
         <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
             <span style="color: #34d399; font-weight: 700; font-size: 0.95rem;">🚀 User Credentials (BYOK) Active:</span>
             <span style="color: #cbd5e1; font-size: 0.88rem; margin-left: 6px;">Unlimited document capacity & customized Groq LLM inference enabled.</span>
+        </div>
+        """, unsafe_allow_html=True)
+    elif is_admin:
+        st.markdown("""
+        <div style="background: rgba(168, 85, 247, 0.12); border: 1px solid rgba(168, 85, 247, 0.35); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px;">
+            <span style="color: #c084fc; font-weight: 700; font-size: 0.95rem;">👑 Administrator Workspace:</span>
+            <span style="color: #cbd5e1; font-size: 0.88rem; margin-left: 6px;">Full administrative privileges with unlimited document indexing capacity.</span>
         </div>
         """, unsafe_allow_html=True)
     else:
@@ -197,10 +223,10 @@ def render_settings_content(user: dict, in_dialog: bool = False):
 
     # Global Save Button
     if st.button("💾 Save & Apply Workspace Credentials", type="primary", use_container_width=True, key="btn_save_all_settings"):
-        p_val = st.session_state.get("cfg_pinecone_key", "").strip()
-        p_idx = st.session_state.get("cfg_pinecone_index", "").strip()
-        g_val = st.session_state.get("cfg_groq_key", "").strip()
-        g_mod = st.session_state.get("cfg_groq_model", "openai/gpt-oss-20b")
+        p_val = st.session_state.get("cfg_pinecone_key", "").strip() or existing_pinecone_key
+        p_idx = st.session_state.get("cfg_pinecone_index", "").strip() or existing_pinecone_index
+        g_val = st.session_state.get("cfg_groq_key", "").strip() or existing_groq_key
+        g_mod = st.session_state.get("cfg_groq_model", "openai/gpt-oss-20b") or existing_groq_model
 
         if not p_val or not g_val or not p_idx:
             st.error("Please provide both Pinecone and Groq API keys along with index name.")

@@ -17,12 +17,26 @@ def render_header_ui(user: dict):
         creds = CredentialService.get_credentials(user_id=user_id, db=db)
 
     is_byok = creds.get("is_byok", False)
-    mode_pill = "🚀 BYOK Mode" if is_byok else "🟢 Shared Mode"
-    mode_bg = "rgba(16, 185, 129, 0.15)" if is_byok else "rgba(56, 189, 248, 0.15)"
-    mode_border = "rgba(16, 185, 129, 0.35)" if is_byok else "rgba(56, 189, 248, 0.35)"
-    mode_color = "#34d399" if is_byok else "#38bdf8"
+    is_admin = user.get("role") == "admin"
+    is_unlimited = is_byok or is_admin
 
     if is_byok:
+        mode_pill = "🚀 BYOK Mode"
+        mode_bg = "rgba(16, 185, 129, 0.15)"
+        mode_border = "rgba(16, 185, 129, 0.35)"
+        mode_color = "#34d399"
+    elif is_admin:
+        mode_pill = "👑 Admin Workspace"
+        mode_bg = "rgba(168, 85, 247, 0.15)"
+        mode_border = "rgba(168, 85, 247, 0.35)"
+        mode_color = "#c084fc"
+    else:
+        mode_pill = "🟢 Shared Mode"
+        mode_bg = "rgba(56, 189, 248, 0.15)"
+        mode_border = "rgba(56, 189, 248, 0.35)"
+        mode_color = "#38bdf8"
+
+    if is_unlimited:
         quota_pill = "♾️ Unlimited Docs"
         quota_bg = "rgba(168, 85, 247, 0.15)"
         quota_border = "rgba(168, 85, 247, 0.35)"

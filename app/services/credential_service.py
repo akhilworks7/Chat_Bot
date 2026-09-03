@@ -79,9 +79,21 @@ class CredentialService:
     def check_upload_allowance(cls, user_id: int, db: Session) -> Dict[str, Any]:
         """
         Calculates document quota status for the user.
-        - Application mode: Restricted by APPLICATION_CREDENTIAL_DOCUMENT_LIMIT (default 2).
-        - BYOK mode: Unlimited application quota.
+        - Admin or BYOK users: Unlimited document capacity.
+        - Shared mode regular users: Restricted by APPLICATION_CREDENTIAL_DOCUMENT_LIMIT (default 2).
         """
+        user = crud.get_user_by_id(db, user_id)
+        if user and user.role == "admin":
+            user_docs = crud.get_user_documents(db, user_id)
+            return {
+                "allowed": True,
+                "mode": "admin",
+                "used": len(user_docs),
+                "limit": None,
+                "is_unlimited": True,
+                "reason": "Admin Unlimited"
+            }
+
         creds_info = cls.get_credentials(user_id, db)
         mode = creds_info["mode"]
 
