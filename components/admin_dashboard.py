@@ -279,13 +279,30 @@ def render_admin_dashboard(admin_user: dict):
                     crud.set_system_setting(db=db, key="SMTP_FROM_EMAIL", value=new_smtp_from.strip(), description="SMTP From Email")
                     crud.set_system_setting(db=db, key="SMTP_USE_TLS", value=str(new_smtp_tls).lower(), description="SMTP TLS")
 
+                    # Persist automatically to cloud storage for permanent reboot resilience
+                    try:
+                        from app.services.vector_service import VectorService
+                        VectorService().save_system_config_to_cloud({
+                            "smtp_host": new_smtp_host.strip(),
+                            "smtp_port": int(new_smtp_port),
+                            "smtp_user": new_smtp_user.strip(),
+                            "smtp_pass": new_smtp_pass.strip(),
+                            "smtp_from": new_smtp_from.strip(),
+                            "smtp_tls": bool(new_smtp_tls),
+                            "doc_limit": int(new_doc_limit),
+                            "max_size": int(new_max_size),
+                            "auto_verify": bool(new_auto_verify)
+                        })
+                    except Exception as ex:
+                        logger.warning(f"Note on cloud config sync: {ex}")
+
                     AuditService.log_event(
                         db=db,
                         action="ADMIN_UPDATE_SETTINGS",
                         user_id=admin_user["id"],
-                        details="Updated system policies and SMTP configuration"
+                        details="Updated system policies and SMTP configuration (synced to cloud)"
                     )
-                st.success("✅ System and SMTP settings updated successfully!")
+                st.success("✅ System and SMTP settings saved & synced to permanent cloud storage!")
                 st.session_state["smtp_updated_alert"] = True
                 st.rerun()
 

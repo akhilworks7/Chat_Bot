@@ -669,3 +669,30 @@ def seed_initial_data(db: Session):
         set_system_setting(db, "SMTP_FROM_EMAIL", str(settings.SMTP_FROM_EMAIL), "SMTP From Email")
     if settings.SMTP_USE_TLS is not None and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_USE_TLS").first():
         set_system_setting(db, "SMTP_USE_TLS", str(settings.SMTP_USE_TLS).lower(), "SMTP Use TLS")
+
+    # 4. Hydrate from Cloud Pinecone Persistence (Guarantees survival across Streamlit Cloud sleeps & reboots)
+    try:
+        from app.services.vector_service import VectorService
+        cloud_cfg = VectorService().load_system_config_from_cloud()
+        if cloud_cfg:
+            if "smtp_host" in cloud_cfg:
+                set_system_setting(db, "SMTP_HOST", str(cloud_cfg["smtp_host"]), "SMTP Server Host")
+            if "smtp_port" in cloud_cfg:
+                set_system_setting(db, "SMTP_PORT", str(cloud_cfg["smtp_port"]), "SMTP Port")
+            if "smtp_user" in cloud_cfg:
+                set_system_setting(db, "SMTP_USER", str(cloud_cfg["smtp_user"]), "SMTP Username")
+            if "smtp_pass" in cloud_cfg:
+                set_system_setting(db, "SMTP_PASSWORD", str(cloud_cfg["smtp_pass"]), "SMTP Password")
+            if "smtp_from" in cloud_cfg:
+                set_system_setting(db, "SMTP_FROM_EMAIL", str(cloud_cfg["smtp_from"]), "SMTP From Email")
+            if "smtp_tls" in cloud_cfg:
+                set_system_setting(db, "SMTP_USE_TLS", str(cloud_cfg["smtp_tls"]).lower(), "SMTP Use TLS")
+            if "doc_limit" in cloud_cfg:
+                set_system_setting(db, "APPLICATION_CREDENTIAL_DOCUMENT_LIMIT", str(cloud_cfg["doc_limit"]), "Max documents allowed")
+            if "max_size" in cloud_cfg:
+                set_system_setting(db, "MAX_UPLOAD_SIZE_MB", str(cloud_cfg["max_size"]), "Max file size in MB")
+            if "auto_verify" in cloud_cfg:
+                set_system_setting(db, "AUTO_VERIFY_EMAIL", str(cloud_cfg["auto_verify"]).lower(), "Auto verify emails")
+            logger.info("Hydrated system and SMTP configuration from Pinecone Cloud.")
+    except Exception as e:
+        logger.warning(f"Note on hydrating system configuration from cloud storage: {e}")

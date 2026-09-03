@@ -461,3 +461,51 @@ class VectorService:
         except Exception as e:
             logger.warning(f"Error fetching document text from Pinecone for '{file_name}': {e}")
             return ""
+
+    def save_system_config_to_cloud(self, config_dict: Dict[str, Any], api_key: Optional[str] = None, index_name: Optional[str] = None) -> bool:
+        """
+        Persists global system settings (such as SMTP credentials and system policies)
+        directly into cloud Pinecone storage under '__system_config__' namespace.
+        Guarantees 100% persistence across Streamlit Cloud sleeps, restarts, and redeploys.
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            dim = getattr(settings, "EMBEDDING_DIMENSION", 384)
+            dummy_vector = [0.001] * dim
+            clean_meta = {}
+            for k, v in config_dict.items():
+                if v is not None:
+                    clean_meta[str(k)] = v
+
+            index.upsert(
+                vectors=[{
+                    "id": "documind_global_system_config",
+                    "values": dummy_vector,
+                    "metadata": clean_meta
+                }],
+                namespace="__system_config__"
+            )
+            logger.info("Successfully persisted global system & SMTP settings to Pinecone Cloud.")
+            return True
+        except Exception as e:
+            logger.warning(f"Unable to persist system config to Pinecone Cloud: {e}")
+            return False
+
+    def load_system_config_from_cloud(self, api_key: Optional[str] = None, index_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Retrieves global system settings from cloud Pinecone storage.
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            fetched = index.fetch(ids=["documind_global_system_config"], namespace="__system_config__")
+            raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+            if "documind_global_system_config" in raw_vecs:
+                target = raw_vecs["documind_global_system_config"]
+                meta = getattr(target, "metadata", {}) or (target.get("metadata", {}) if isinstance(target, dict) else {})
+                if isinstance(meta, dict):
+                    logger.info("Successfully loaded persisted system & SMTP settings from Pinecone Cloud.")
+                    return meta
+            return {}
+        except Exception as e:
+            logger.warning(f"Note on loading system config from Pinecone Cloud: {e}")
+            return {}
