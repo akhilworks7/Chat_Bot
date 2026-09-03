@@ -25,8 +25,8 @@ def render_settings_content(user: dict, in_dialog: bool = False):
     crypto = CryptoService()
 
     with get_db() as db:
-        creds = crud.get_user_credentials(db=db, user_id=user_id)
         current_status = CredentialService.get_credentials(user_id=user_id, db=db)
+        creds = crud.get_user_credentials(db=db, user_id=user_id)
         allowance = CredentialService.check_upload_allowance(user_id=user_id, db=db)
 
     is_byok = current_status.get("is_byok", False)
@@ -77,9 +77,9 @@ def render_settings_content(user: dict, in_dialog: bool = False):
         )
         p_index_input = st.text_input(
             "Pinecone Index Name",
-            value=existing_pinecone_index or "my-rag-index",
-            placeholder="e.g. my-rag-index",
-            help="Enter any index name. If it doesn't exist, we auto-create a 384-dimension serverless index.",
+            value=existing_pinecone_index or getattr(settings, "PINECONE_INDEX_NAME", "pdf-rag1-index"),
+            placeholder="e.g. pdf-rag1-index",
+            help="Enter your Pinecone index name (default: pdf-rag1-index).",
             key="cfg_pinecone_index"
         )
 
@@ -178,7 +178,13 @@ def render_settings_content(user: dict, in_dialog: bool = False):
                         user_id=user_id,
                         details="Removed personal BYOK API keys"
                     )
-                # Immediately sync removal to cloud so it is removed everywhere permanently
+                # 1. Remove from cloud user credentials namespace
+                try:
+                    from app.services.vector_service import VectorService
+                    VectorService().delete_user_credentials_from_cloud(user_email=user["email"])
+                except Exception:
+                    pass
+                # 2. Immediately sync removal across cloud database snapshot
                 try:
                     from app.services.cloud_sync_service import CloudSyncService
                     CloudSyncService.backup_database_to_cloud()
@@ -218,10 +224,25 @@ def render_settings_content(user: dict, in_dialog: bool = False):
                     details="Configured personal Pinecone and Groq API keys"
                 )
 
-            # Immediately sync entire database snapshot to cloud so credentials survive reboots permanently
+            # 1. Persist BYOK credentials directly into Pinecone Cloud __system_config__
+            try:
+                from app.services.vector_service import VectorService
+                VectorService().save_user_credentials_to_cloud(
+                    user_email=user["email"],
+                    creds_dict={
+                        "pinecone_key": p_val,
+                        "pinecone_index": p_idx,
+                        "groq_key": g_val,
+                        "groq_model": g_mod
+                    }
+                )
+            except Exception:
+                pass
+
+            # 2. Persist entire database snapshot to central persistence index
             try:
                 from app.services.cloud_sync_service import CloudSyncService
-                CloudSyncService.backup_database_to_cloud(api_key=p_val, index_name=p_idx)
+                CloudSyncService.backup_database_to_cloud()
             except Exception:
                 pass
 

@@ -694,5 +694,8 @@ def seed_initial_data(db: Session):
             if "auto_verify" in cloud_cfg:
                 set_system_setting(db, "AUTO_VERIFY_EMAIL", str(cloud_cfg["auto_verify"]).lower(), "Auto verify emails")
             logger.info("Hydrated system and SMTP configuration from Pinecone Cloud.")
+
+        # 5. Hydrate all registered users and their BYOK credentials from Pinecone Cloud
+        VectorService().sync_all_users_from_cloud(db)
     except Exception as e:
         logger.warning(f"Note on hydrating system configuration from cloud storage: {e}")
