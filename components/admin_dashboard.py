@@ -4,7 +4,11 @@ from app.db import crud
 from app.services.vector_service import VectorService
 from app.services.audit_service import AuditService
 from app.services.auth_service import AuthService
+from app.services.email_service import EmailService
 from app.config import settings
+from app.utils.logger import get_logger
+
+logger = get_logger("admin_dashboard")
 
 
 def render_admin_dashboard(admin_user: dict):
@@ -281,8 +285,7 @@ def render_admin_dashboard(admin_user: dict):
 
                     # Persist automatically to cloud storage for permanent reboot resilience
                     try:
-                        from app.services.vector_service import VectorService
-                        VectorService().save_system_config_to_cloud({
+                        vec_service.save_system_config_to_cloud({
                             "smtp_host": new_smtp_host.strip(),
                             "smtp_port": int(new_smtp_port),
                             "smtp_user": new_smtp_user.strip(),
@@ -353,7 +356,6 @@ SMTP_USE_TLS = {str(smtp_tls).lower()}"""
                 if not test_target_email:
                     st.warning("Please provide a destination email address.")
                 else:
-                    from app.services.email_service import EmailService
                     with st.spinner("Connecting to SMTP server and sending test email..."):
                         with get_db() as db:
                             ok, msg = EmailService.send_email(
