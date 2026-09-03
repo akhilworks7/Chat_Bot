@@ -157,6 +157,10 @@ class AuthService:
             otp_code=otp_code,
             expires_minutes=10
         )
+        try:
+            db.commit()
+        except Exception:
+            db.flush()
 
         # Dispatch email
         email_ok, email_msg = EmailService.send_verification_email(
@@ -186,7 +190,7 @@ class AuthService:
             existing = crud.get_user_by_email(db, clean_email)
             if existing:
                 return False, "This account is already registered and verified! Please log in.", None
-            return False, f"No pending registration found for '{clean_email}'. Please click '← Back to Register' to create your account.", None
+            return False, f"No pending registration found for '{clean_email}'. Please create your account.", None
 
         new_otp = cls.generate_token(6)
         crud.create_or_update_pending_registration(
@@ -197,6 +201,10 @@ class AuthService:
             otp_code=new_otp,
             expires_minutes=10
         )
+        try:
+            db.commit()
+        except Exception:
+            db.flush()
 
         email_ok, email_msg = EmailService.send_verification_email(
             to_email=pending.email,
@@ -294,6 +302,55 @@ class AuthService:
         return True, "Email verified and account activated successfully!", user
 
     @classmethod
+    def register_direct(
+        cls,
+        db: Session,
+        name: str,
+        email: str,
+        password: str,
+        role: str = "user"
+    ) -> Tuple[bool, str, Optional[User]]:
+        """
+        Directly creates an active registered user account without email verification gating.
+        """
+        email = email.lower().strip()
+        name = name.strip()
+
+        is_valid_email, email_err = cls.validate_email(email)
+        if not is_valid_email:
+            return False, email_err, None
+
+        if not name:
+            return False, "Please enter your full name.", None
+
+        existing_user = crud.get_user_by_email(db, email)
+        if existing_user:
+            return False, "An account with this email address already exists. Please log in.", None
+
+        valid_pwd, pwd_msg = cls.validate_password_strength(password)
+        if not valid_pwd:
+            return False, pwd_msg, None
+
+        hashed_password = cls.hash_password(password)
+        user = crud.create_user(
+            db=db,
+            name=name,
+            email=email,
+            password_hash=hashed_password,
+            role=role,
+            email_verified=True
+        )
+
+        crud.create_audit_log(
+            db=db,
+            action="USER_REGISTER_DIRECT",
+            user_id=user.id,
+            details=f"User {user.email} registered account directly"
+        )
+
+        return True, "Account created successfully!", user
+
+    @classmethod
     def register(
         cls,
         db: Session,
@@ -337,7 +394,8 @@ class AuthService:
         ip_address: Optional[str] = None
     ) -> Tuple[bool, str, Optional[User]]:
         """
-        Authenticates user with email and password, enforcing verified status.
+        Authenticates user with email and password directly using registered credentials.
+        No email verification requirement on login.
         """
         email = email.lower().strip()
         is_valid_email, email_err = cls.validate_email(email)
@@ -350,9 +408,6 @@ class AuthService:
 
         if not user.is_active:
             return False, "Your account has been deactivated. Please contact an administrator.", None
-
-        if not user.email_verified:
-            return False, "⚠️ Your email address has not been verified yet. Please switch to the '✉️ Verify Email' tab and enter your verification code before logging in.", None
 
         if not cls.verify_password(password, user.password_hash):
             crud.create_audit_log(
@@ -382,16 +437,24 @@ class AuthService:
     def request_password_reset(cls, db: Session, email: str) -> Tuple[bool, str, Optional[str]]:
         """
         Creates a password reset token and sends it.
+        If user is not found, clearly informs the caller.
         """
         email = email.lower().strip()
+        is_valid_email, email_err = cls.validate_email(email)
+        if not is_valid_email:
+            return False, email_err, None
+
         user = crud.get_user_by_email(db, email)
         if not user:
-            # Prevent email enumeration by returning a generic friendly message
-            return True, "If that email exists in our system, a reset code has been sent.", None
+            return False, "User not found. Please enter a registered email address.", None
 
         token_str = cls.generate_token(6)
         crud.create_password_reset_token(db, user_id=user.id, token=token_str)
-        EmailService.send_password_reset_email(to_email=user.email, name=user.name, token=token_str)
+        try:
+            db.commit()
+        except Exception:
+            db.flush()
+        EmailService.send_password_reset_email(to_email=user.email, name=user.name, token=token_str, db=db)
 
         crud.create_audit_log(
             db=db,
@@ -399,17 +462,21 @@ class AuthService:
             user_id=user.id,
             details=f"Password reset requested for {email}"
         )
-        return True, "A password reset code has been sent to your email.", token_str
+        dev_token = token_str if not EmailService.is_smtp_configured(db) else None
+        return True, f"A password reset code has been sent to {user.email}.", dev_token
 
     @classmethod
-    def reset_password(cls, db: Session, token: str, new_password: str) -> Tuple[bool, str]:
+    def reset_password(cls, db: Session, token: str, new_password: str, email: Optional[str] = None) -> Tuple[bool, str]:
         """
-        Resets user password using a valid token.
+        Resets user password using a valid token, optionally matching email.
         """
         token = token.strip()
         user = crud.verify_password_reset_token(db, token)
         if not user:
             return False, "Invalid or expired reset code."
+
+        if email and user.email.lower().strip() != email.lower().strip():
+            return False, "This reset code does not match the provided email address."
 
         valid, msg = cls.validate_password_strength(new_password)
         if not valid:

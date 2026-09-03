@@ -448,7 +448,8 @@ def create_or_update_pending_registration(
         existing.created_at = datetime.datetime.utcnow()
         db.flush()
         return existing
-    else:
+
+    try:
         pending = PendingRegistration(
             name=name.strip(),
             email=clean_email,
@@ -460,6 +461,22 @@ def create_or_update_pending_registration(
         db.add(pending)
         db.flush()
         return pending
+    except Exception:
+        db.rollback()
+        # Fallback if record was inserted concurrently
+        existing = db.query(PendingRegistration).filter(
+            func.lower(PendingRegistration.email) == clean_email
+        ).first()
+        if existing:
+            existing.name = name.strip()
+            existing.password_hash = password_hash
+            existing.otp_code = otp_code.strip()
+            existing.expires_at = expires_at
+            existing.attempts = 0
+            existing.created_at = datetime.datetime.utcnow()
+            db.flush()
+            return existing
+        raise
 
 
 def get_pending_registration(db: Session, email: str) -> Optional[PendingRegistration]:
@@ -638,3 +655,17 @@ def seed_initial_data(db: Session):
         db.add(usage)
         db.flush()
         logger.info("Created default system administrator: admin@documind.ai")
+
+    # 3. Seed SMTP Settings from Environment/Secrets if configured
+    if settings.SMTP_HOST and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_HOST").first():
+        set_system_setting(db, "SMTP_HOST", str(settings.SMTP_HOST), "SMTP Server Host")
+    if settings.SMTP_PORT and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_PORT").first():
+        set_system_setting(db, "SMTP_PORT", str(settings.SMTP_PORT), "SMTP Port")
+    if settings.SMTP_USER and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_USER").first():
+        set_system_setting(db, "SMTP_USER", str(settings.SMTP_USER), "SMTP Username")
+    if settings.SMTP_PASSWORD and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_PASSWORD").first():
+        set_system_setting(db, "SMTP_PASSWORD", str(settings.SMTP_PASSWORD), "SMTP Password")
+    if settings.SMTP_FROM_EMAIL and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_FROM_EMAIL").first():
+        set_system_setting(db, "SMTP_FROM_EMAIL", str(settings.SMTP_FROM_EMAIL), "SMTP From Email")
+    if settings.SMTP_USE_TLS is not None and not db.query(SystemSetting).filter(SystemSetting.key == "SMTP_USE_TLS").first():
+        set_system_setting(db, "SMTP_USE_TLS", str(settings.SMTP_USE_TLS).lower(), "SMTP Use TLS")

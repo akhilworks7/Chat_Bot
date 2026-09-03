@@ -59,6 +59,32 @@ class LLMService:
 
         return "\n\n".join(context_parts)
 
+    @staticmethod
+    def clean_answer_boilerplates(answer: str, question: str) -> str:
+        """
+        Removes repetitive self-promotional boilerplate footers like:
+        '## How I can help you ...' or 'Feel free to ask more about...'
+        unless the user explicitly asked who you are or how you can help.
+        """
+        if not answer:
+            return answer
+
+        import re
+        q_lower = question.lower()
+        explicit_identity_query = any(w in q_lower for w in ["who are you", "what can you do", "introduce yourself", "how can you help"])
+
+        if not explicit_identity_query:
+            # Strip trailing "## How I can help you" sections and subsequent bullet points
+            pattern = r"(?:\n\s*---\s*)?\n\s*#{1,4}\s*How I can help you[\s\S]*$"
+            cleaned = re.sub(pattern, "", answer, flags=re.IGNORECASE)
+            if cleaned.strip():
+                answer = cleaned.strip()
+
+            # Also strip trailing "Feel free to ask more about..." if present
+            answer = re.sub(r"\n\s*Feel free to ask more about.*$", "", answer, flags=re.IGNORECASE).strip()
+
+        return answer
+
     def create_chat_prompt(self, question: str, context: Optional[str] = None) -> str:
         """
         Constructs prompt supporting both grounded document QA and polite, natural Chit Chat.
@@ -76,21 +102,23 @@ User Message:
 
 Instructions:
 1. If the provided context contains information relevant to the user's question, base your answer on the context and cite the source document name(s) (e.g. `[Source: filename.pdf]`).
-2. If the user's question cannot be answered from the provided context (or is a general concept, technical explanation, or greeting), answer the question directly, accurately, and helpfully. Do NOT output negative disclaimers like "The documents you shared do not contain..." unless the user specifically asked what their uploaded document says.
+2. If the user's question cannot be answered from the provided context (or is a general concept, technical explanation, or greeting), answer the question directly, accurately, and helpfully using your knowledge. Do NOT output negative disclaimers like "The documents you shared do not contain...".
 3. Only cite a source document if information from that document was actually used in formulating your response.
 4. Format your response cleanly using Markdown (headers, bullet points, bold text).
+5. CRITICAL: Answer ONLY the user's question. Do NOT append unnecessary self-introductions, promotional sales pitches, or "How I can help you" sections at the end.
 
 Answer:"""
         else:
-            return f"""You are DocuMind AI, a friendly, polite, and intelligent document assistant and conversational AI.
+            return f"""You are DocuMind AI, a helpful, polite, and intelligent AI assistant.
 
 User Message:
 {question}
 
 Instructions:
-1. Respond politely, naturally, and helpfully to the user's greeting, question, or casual conversation.
-2. If the user asks what you can do or how to use the app, explain that you are DocuMind AI and can answer general questions as well as ingest and analyze PDF documents uploaded to their DocuMind workspace.
-3. Format your response cleanly using Markdown (headers, bullet points, bold text).
+1. Respond directly, accurately, and thoroughly to the user's question, topic, or greeting.
+2. If the question is about a technical topic, tool, or concept, provide a clear, professional explanation focused strictly on that subject.
+3. CRITICAL: Do NOT append any self-promotional footer, boilerplate introduction, or "How I can help you" section to your answer unless the user specifically and explicitly asked who you are or what you can do.
+4. Format your response cleanly using Markdown (headers, bullet points, bold text).
 
 Answer:"""
 
@@ -139,6 +167,7 @@ Answer:"""
                     temperature=temp,
                 )
                 answer = response.choices[0].message.content.strip()
+                answer = self.clean_answer_boilerplates(answer, question)
                 logger.info(f"Successfully generated answer from Groq LLM using '{current_model}'.")
                 return answer
             except RateLimitError as e:

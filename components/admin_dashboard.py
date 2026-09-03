@@ -286,7 +286,43 @@ def render_admin_dashboard(admin_user: dict):
                         details="Updated system policies and SMTP configuration"
                     )
                 st.success("✅ System and SMTP settings updated successfully!")
+                st.session_state["smtp_updated_alert"] = True
                 st.rerun()
+
+        # ----------------------------------------------------
+        # PERMANENT CLOUD PERSISTENCE GUIDE
+        # ----------------------------------------------------
+        is_sqlite = db_url.startswith("sqlite") if "db_url" in locals() else settings.DATABASE_URL.startswith("sqlite")
+        with st.expander("☁️ Streamlit Cloud Permanent Persistence Guide (Prevent Data Loss on Sleep/Restart)", expanded=is_sqlite):
+            st.markdown("""
+            **Why does Streamlit Cloud lose local SQLite data?**  
+            Streamlit Community Cloud runs in ephemeral Docker containers. When the application goes to sleep after inactivity, restarts, or redeploys, **any local disk files (including SQLite `rag_app.db`) are reset** back to the GitHub commit.
+            
+            Follow the two quick steps below to guarantee **permanent 100% zero-loss persistence**:
+            """)
+
+            st.markdown("##### 1️⃣ Permanent SMTP Settings (Streamlit Secrets)")
+            st.caption("Paste this into your Streamlit Cloud **App Settings → Secrets** so your SMTP credentials survive sleeps and restarts permanently:")
+            secrets_smtp_snippet = f"""# --- STREAMLIT CLOUD SECRETS ---
+SMTP_HOST = "{smtp_host or 'smtp.gmail.com'}"
+SMTP_PORT = {smtp_port or 587}
+SMTP_USER = "{smtp_user or 'your_email@gmail.com'}"
+SMTP_PASSWORD = "{smtp_pass or 'your_google_app_password'}"
+SMTP_FROM_EMAIL = "{smtp_from or 'no-reply@documind.ai'}"
+SMTP_USE_TLS = {str(smtp_tls).lower()}"""
+            st.code(secrets_smtp_snippet, language="toml")
+
+            st.markdown("##### 2️⃣ Permanent User & Workspace Accounts (Free Cloud PostgreSQL)")
+            st.caption("To ensure registered users, password reset tokens, and document metadata are retained permanently across sleeps:")
+            st.markdown("""
+            1. Create a free database on **[Supabase](https://supabase.com)** or **[Neon](https://neon.tech)** (free forever).
+            2. Copy your PostgreSQL connection string and add it to **Streamlit Cloud App Settings → Secrets**:
+            """)
+            st.code("""DATABASE_URL = "postgresql://postgres:[PASSWORD]@[HOST]:5432/postgres"\n""", language="toml")
+            if is_sqlite:
+                st.info("ℹ️ Currently running on **Local SQLite**. For local testing this is fine, but for Streamlit Cloud production, adding `DATABASE_URL` or the secrets above is recommended.")
+            else:
+                st.success("🎉 **Connected to Cloud PostgreSQL Database!** All users, credentials, and settings are 100% permanently retained.")
 
         # SMTP Test Card
         st.markdown("##### 🧪 Test SMTP Email Delivery")

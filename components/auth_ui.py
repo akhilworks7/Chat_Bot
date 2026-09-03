@@ -6,8 +6,11 @@ from app.db import crud
 
 def render_auth_ui():
     """
-    Renders the modern SaaS authentication interface with Login, Register, Dedicated Email Verification,
+    Renders the modern SaaS authentication interface with Login, Register,
     and Password Reset flows inside a centered glassmorphic card responsive on all device screens.
+    - Login: Direct login with registered credentials (no verification required on login page).
+    - Register: OTP-based registration flow (enter details -> receive OTP -> verify OTP -> activate account).
+    - Reset Password: Unified single flow with automatic navigation to Login upon success.
     """
     st.markdown("""
     <div style="text-align:center; padding: 1.5rem 0 1rem 0;">
@@ -21,112 +24,55 @@ def render_auth_ui():
     </div>
     """, unsafe_allow_html=True)
 
-    if "auth_view" not in st.session_state:
-        st.session_state.auth_view = "tabs"
+    if "auth_tab" not in st.session_state:
+        st.session_state.auth_tab = "🔑 Log In"
 
     col_pad_left, col_card, col_pad_right = st.columns([1, 2.2, 1])
 
     with col_card:
         # ====================================================
-        # DEDICATED VERIFICATION SCREEN (After Registration)
+        # PROGRAMMATICALLY CONTROLLABLE NAVIGATION BAR
         # ====================================================
-        if st.session_state.auth_view == "verify_pending":
-            pending_email = st.session_state.get("pending_reg_email", "")
+        col_t1, col_t2, col_t3 = st.columns(3)
+        with col_t1:
+            btn_t1 = "primary" if st.session_state.auth_tab == "🔑 Log In" else "secondary"
+            if st.button("🔑 Log In", use_container_width=True, type=btn_t1, key="nav_btn_login"):
+                st.session_state.auth_tab = "🔑 Log In"
+                st.rerun()
+        with col_t2:
+            btn_t2 = "primary" if st.session_state.auth_tab == "✨ Register" else "secondary"
+            if st.button("✨ Register", use_container_width=True, type=btn_t2, key="nav_btn_reg"):
+                st.session_state.auth_tab = "✨ Register"
+                st.rerun()
+        with col_t3:
+            btn_t3 = "primary" if st.session_state.auth_tab == "🔄 Reset" else "secondary"
+            if st.button("🔄 Reset", use_container_width=True, type=btn_t3, key="nav_btn_reset"):
+                st.session_state.auth_tab = "🔄 Reset"
+                st.rerun()
 
-            st.markdown("""
-            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 16px; padding: 20px; text-align: center; margin-bottom: 18px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);">
-                <div style="font-size: 2.4rem; margin-bottom: 6px;">✉️</div>
-                <h3 style="margin: 0; color: #f8fafc; font-size: 1.25rem;">Verify Your Email Address</h3>
-                <p style="color: #94a3b8; margin-top: 6px; font-size: 0.88rem; line-height: 1.5;">
-                    Please enter the 6-digit verification code sent to your email inbox.
-                </p>
-                <div style="display: inline-block; background: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 20px; padding: 3px 12px; color: #f87171; font-size: 0.78rem; font-weight: 600; margin-top: 6px;">
-                    ⏱️ Code expires in 10 minutes
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            with st.form("dedicated_verify_form", clear_on_submit=False):
-                email_input = st.text_input(
-                    "Account Email",
-                    value=pending_email,
-                    placeholder="name@company.com",
-                    key="dedicated_email_val"
-                ).strip()
-
-                otp_input = st.text_input(
-                    "6-Digit Verification Code",
-                    placeholder="e.g. 123456",
-                    key="dedicated_otp_val",
-                    max_chars=10
-                ).strip()
-
-                submit_otp = st.form_submit_button("✅ Verify & Activate Account", use_container_width=True, type="primary")
-
-            if submit_otp:
-                if not otp_input:
-                    st.error("Please enter the 6-digit verification code.")
-                else:
-                    success, msg, user = False, "", None
-                    with get_db() as db:
-                        success, msg, user = AuthService.complete_registration(
-                            db=db,
-                            email=email_input or pending_email,
-                            otp_code=otp_input
-                        )
-                    if success and user:
-                        st.session_state.authenticated = True
-                        st.session_state.user = user.to_dict()
-                        st.session_state.user_id = user.id
-                        st.session_state.user_name = user.name
-                        st.session_state.user_email = user.email
-                        st.session_state.user_role = user.role
-                        st.session_state.nav_page = "documents"
-                        st.session_state.auth_view = "tabs"
-                        st.toast(f"Welcome, {user.name}! Your account is now active.")
-                        st.rerun()
-                    else:
-                        st.error(msg)
-
-            # Secondary Action Bar (Resend & Change Email)
-            col_resend, col_back = st.columns(2)
-            with col_resend:
-                if st.button("🔄 Resend Code", use_container_width=True, help="Invalidate old code and generate a new one"):
-                    target_email = st.session_state.get("dedicated_email_val", "").strip() or pending_email
-                    if not target_email:
-                        st.warning("Please enter your account email above to resend the code.")
-                    else:
-                        res_ok, res_msg = False, ""
-                        with get_db() as db:
-                            res_ok, res_msg, _ = AuthService.resend_registration_otp(db=db, email=target_email)
-                        if res_ok:
-                            st.success("✅ A new verification code has been dispatched to your email.")
-                        else:
-                            st.error(res_msg)
-
-            with col_back:
-                if st.button("← Back to Register", use_container_width=True, help="Return to registration form"):
-                    st.session_state.auth_view = "tabs"
-                    st.rerun()
-
-            return
-
-        # ====================================================
-        # STANDARD AUTHENTICATION TABS
-        # ====================================================
-        tab_login, tab_register, tab_verify, tab_reset = st.tabs([
-            "🔑 Log In", "✨ Register", "✉️ Verify", "🔄 Reset"
-        ])
+        st.markdown("<hr style='margin: 12px 0 16px 0; border-color: rgba(255,255,255,0.08);'>", unsafe_allow_html=True)
 
         # ----------------------------------------------------
-        # TAB 1: LOGIN
+        # TAB 1: LOGIN (Direct Login - No Verification Barrier)
         # ----------------------------------------------------
-        with tab_login:
-            st.markdown("<div style='padding: 6px 0 10px 0;'><h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Welcome Back</h3><p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>Enter your credentials to access your document workspace.</p></div>", unsafe_allow_html=True)
+        if st.session_state.auth_tab == "🔑 Log In":
+            st.markdown(
+                "<div style='padding: 2px 0 10px 0;'>"
+                "<h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Welcome Back</h3>"
+                "<p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>Enter your registered credentials to access your workspace.</p>"
+                "</div>",
+                unsafe_allow_html=True
+            )
+
+            flash_msg = st.session_state.pop("login_flash_success", None)
+            if flash_msg:
+                st.success(f"✅ {flash_msg}")
+
+            default_login_email = st.session_state.get("login_email", "")
 
             with st.form("login_form", clear_on_submit=False):
-                email = st.text_input("Email Address", placeholder="name@company.com", key="login_email").strip()
-                password = st.text_input("Password", type="password", placeholder="••••••••", key="login_pass")
+                email = st.text_input("Email Address", value=default_login_email, placeholder="name@company.com", key="login_email_input").strip()
+                password = st.text_input("Password", type="password", placeholder="••••••••", key="login_pass_input")
                 submit_login = st.form_submit_button("Sign In to Workspace", use_container_width=True, type="primary")
 
             if submit_login:
@@ -134,8 +80,9 @@ def render_auth_ui():
                     st.error("Please provide both email and password.")
                 else:
                     success, msg, user = False, "", None
-                    with get_db() as db:
-                        success, msg, user = AuthService.authenticate(db=db, email=email, password=password)
+                    with st.spinner("Signing in to workspace..."):
+                        with get_db() as db:
+                            success, msg, user = AuthService.authenticate(db=db, email=email, password=password)
                     if success and user:
                         st.session_state.authenticated = True
                         st.session_state.user = user.to_dict()
@@ -144,120 +91,329 @@ def render_auth_ui():
                         st.session_state.user_email = user.email
                         st.session_state.user_role = user.role
                         st.session_state.nav_page = "documents"
-                        st.success(f"Welcome back, {user.name}!")
+                        st.toast(f"Welcome back, {user.name}!")
                         st.rerun()
                     else:
                         st.error(msg)
 
-        # ----------------------------------------------------
-        # TAB 2: REGISTER
-        # ----------------------------------------------------
-        with tab_register:
-            st.markdown("<div style='padding: 6px 0 10px 0;'><h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Create an Account</h3><p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>Get started with 2 free documents on our shared infrastructure.</p></div>", unsafe_allow_html=True)
+            # Secondary navigation links
+            col_forgot, col_need_acc = st.columns(2)
+            with col_forgot:
+                if st.button("Forgot Password?", use_container_width=True, help="Reset your password"):
+                    st.session_state.auth_tab = "🔄 Reset"
+                    st.rerun()
+            with col_need_acc:
+                if st.button("Create Account", use_container_width=True, help="Register a new account"):
+                    st.session_state.auth_tab = "✨ Register"
+                    st.rerun()
 
-            with st.form("register_form", clear_on_submit=False):
-                reg_name = st.text_input("Full Name", placeholder="Jane Doe", key="reg_name").strip()
-                reg_email = st.text_input("Email Address", placeholder="jane@example.com", key="reg_email").strip()
-                reg_pass = st.text_input("Password", type="password", placeholder="At least 8 chars (A-Z, 0-9)", key="reg_pass")
-                reg_pass_conf = st.text_input("Confirm Password", type="password", placeholder="Repeat password", key="reg_pass_conf")
-                submit_reg = st.form_submit_button("Create My Account", use_container_width=True, type="primary")
+        # ----------------------------------------------------
+        # TAB 2: REGISTER (OTP-Based Registration Flow)
+        # ----------------------------------------------------
+        elif st.session_state.auth_tab == "✨ Register":
+            st.markdown(
+                "<div style='padding: 2px 0 10px 0;'>"
+                "<h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Create an Account</h3>"
+                "<p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>Enter your details to receive a 6-digit OTP code to verify and activate your account.</p>"
+                "</div>",
+                unsafe_allow_html=True
+            )
 
-            if submit_reg:
-                if not reg_name or not reg_email or not reg_pass:
-                    st.error("Please fill in all required fields.")
-                elif reg_pass != reg_pass_conf:
-                    st.error("Passwords do not match.")
-                else:
-                    success, msg, dev_token = False, "", None
-                    with get_db() as db:
-                        success, msg, dev_token = AuthService.initiate_registration(
-                            db=db,
-                            name=reg_name,
-                            email=reg_email,
-                            password=reg_pass
-                        )
-                    if success:
-                        st.session_state.pending_reg_email = reg_email.lower().strip()
-                        st.session_state.pending_reg_name = reg_name.strip()
-                        st.session_state.auth_view = "verify_pending"
-                        st.rerun()
+            reg_pending_email = st.session_state.get("reg_otp_email", "")
+            reg_manual_otp = st.session_state.get("reg_manual_otp", False)
+
+            # Stage 1: Registration Form (Name, Email, Password) -> Dispatches OTP
+            if not reg_pending_email and not reg_manual_otp:
+                with st.form("register_form", clear_on_submit=False):
+                    reg_name = st.text_input("Full Name", placeholder="Jane Doe", key="reg_name").strip()
+                    reg_email = st.text_input("Email Address", placeholder="jane@example.com", key="reg_email").strip()
+                    reg_pass = st.text_input("Password", type="password", placeholder="At least 8 chars (A-Z, 0-9)", key="reg_pass")
+                    reg_pass_conf = st.text_input("Confirm Password", type="password", placeholder="Repeat password", key="reg_pass_conf")
+                    submit_reg = st.form_submit_button("📩 Send Verification OTP", use_container_width=True, type="primary")
+
+                if submit_reg:
+                    if not reg_name or not reg_email or not reg_pass:
+                        st.error("Please fill in all required fields.")
+                    elif reg_pass != reg_pass_conf:
+                        st.error("Passwords do not match.")
                     else:
-                        st.error(msg)
+                        success, msg, dev_token = False, "", None
+                        with get_db() as db:
+                            success, msg, dev_token = AuthService.initiate_registration(
+                                db=db,
+                                name=reg_name,
+                                email=reg_email,
+                                password=reg_pass
+                            )
+                        if success:
+                            st.session_state.reg_otp_email = reg_email.lower().strip()
+                            st.session_state.reg_otp_name = reg_name.strip()
+                            st.rerun()
+                        else:
+                            st.error(msg)
 
-        # ----------------------------------------------------
-        # TAB 3: VERIFY EMAIL
-        # ----------------------------------------------------
-        with tab_verify:
-            st.markdown("<div style='padding: 6px 0 10px 0;'><h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Verify Email Address</h3><p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>Enter your email and the 6-digit code received in your inbox.</p></div>", unsafe_allow_html=True)
-
-            with st.form("tab_verify_form", clear_on_submit=False):
-                v_email = st.text_input("Account Email", placeholder="name@company.com", key="tab_v_email").strip()
-                v_code = st.text_input("6-Digit Code", placeholder="e.g. 123456", key="tab_v_code", max_chars=10).strip()
-                submit_tab_verify = st.form_submit_button("Verify Account", use_container_width=True, type="primary")
-
-            if submit_tab_verify:
-                if not v_code:
-                    st.error("Please enter the verification code.")
-                else:
-                    success, msg, user = False, "", None
-                    with get_db() as db:
-                        success, msg, user = AuthService.complete_registration(
-                            db=db,
-                            email=v_email,
-                            otp_code=v_code
-                        )
-                    if success and user:
-                        st.session_state.authenticated = True
-                        st.session_state.user = user.to_dict()
-                        st.session_state.user_id = user.id
-                        st.session_state.user_name = user.name
-                        st.session_state.user_email = user.email
-                        st.session_state.user_role = user.role
-                        st.session_state.nav_page = "documents"
-                        st.toast(f"Welcome, {user.name}! Your account is now active.")
+                # Option for user who already holds an OTP
+                col_already, col_login_switch = st.columns(2)
+                with col_already:
+                    if st.button("Have an OTP Code?", use_container_width=True):
+                        st.session_state.reg_manual_otp = True
                         st.rerun()
+                with col_login_switch:
+                    if st.button("Already Registered? Sign In", use_container_width=True):
+                        st.session_state.auth_tab = "🔑 Log In"
+                        st.rerun()
+
+            # Stage 2: OTP Verification & Account Activation in the same flow
+            else:
+                active_reg_email = reg_pending_email or st.session_state.get("reg_verify_email", "")
+
+                if reg_pending_email:
+                    st.markdown(f"""
+                    <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;">
+                        <span style="color: #34d399; font-weight: 600; font-size: 0.92rem;">✉️ OTP Sent to Your Email!</span>
+                        <p style="color: #cbd5e1; font-size: 0.84rem; margin: 4px 0 0 0; line-height: 1.4;">
+                            A 6-digit verification code has been dispatched to <b>{reg_pending_email}</b>.
+                            Please enter it below to activate your account.
+                        </p>
+                        <div style="display: inline-block; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 20px; padding: 2px 10px; color: #f87171; font-size: 0.74rem; font-weight: 600; margin-top: 8px;">
+                            ⏱️ Code expires in 10 minutes
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with st.form("reg_otp_verify_form", clear_on_submit=False):
+                    verify_email = st.text_input(
+                        "Account Email",
+                        value=active_reg_email,
+                        placeholder="name@company.com",
+                        key="reg_verify_email"
+                    ).strip()
+
+                    verify_otp = st.text_input(
+                        "6-Digit Verification OTP",
+                        placeholder="e.g. 123456",
+                        key="reg_verify_otp",
+                        max_chars=10
+                    ).strip()
+
+                    submit_verify_otp = st.form_submit_button("✅ Verify OTP & Activate Account", use_container_width=True, type="primary")
+
+                if submit_verify_otp:
+                    if not verify_otp:
+                        st.error("Please enter the 6-digit verification OTP.")
                     else:
-                        st.error(msg)
+                        success, msg, user = False, "", None
+                        with get_db() as db:
+                            success, msg, user = AuthService.complete_registration(
+                                db=db,
+                                email=verify_email or reg_pending_email,
+                                otp_code=verify_otp
+                            )
+                        if success and user:
+                            st.session_state.pop("reg_otp_email", None)
+                            st.session_state.pop("reg_otp_name", None)
+                            st.session_state.pop("reg_manual_otp", None)
+
+                            st.session_state.authenticated = True
+                            st.session_state.user = user.to_dict()
+                            st.session_state.user_id = user.id
+                            st.session_state.user_name = user.name
+                            st.session_state.user_email = user.email
+                            st.session_state.user_role = user.role
+                            st.session_state.nav_page = "documents"
+                            st.toast(f"🎉 Welcome, {user.name}! Your account has been verified and activated.")
+                            st.rerun()
+                        else:
+                            st.error(msg)
+
+                # Secondary row: Resend & Edit Details
+                col_resend, col_back = st.columns(2)
+                with col_resend:
+                    if st.button("🔄 Resend OTP", use_container_width=True, help="Invalidate old OTP and send a new one"):
+                        target_mail = verify_email or reg_pending_email
+                        if not target_mail:
+                            st.warning("Please enter your account email above to resend.")
+                        else:
+                            r_ok, r_msg, _ = False, "", None
+                            with get_db() as db:
+                                r_ok, r_msg, _ = AuthService.resend_registration_otp(db=db, email=target_mail)
+                            if r_ok:
+                                st.session_state.reg_otp_email = target_mail.lower().strip()
+                                st.success("✅ A fresh 6-digit OTP has been sent to your email.")
+                                st.rerun()
+                            else:
+                                st.error(r_msg)
+
+                with col_back:
+                    if st.button("← Edit Details", use_container_width=True):
+                        st.session_state.pop("reg_otp_email", None)
+                        st.session_state.pop("reg_otp_name", None)
+                        st.session_state.pop("reg_manual_otp", None)
+                        st.rerun()
 
         # ----------------------------------------------------
-        # TAB 4: PASSWORD RESET
+        # TAB 3: PASSWORD RESET (Unified Single Flow -> Auto Navigate to Login)
         # ----------------------------------------------------
-        with tab_reset:
-            st.markdown("<div style='padding: 6px 0 10px 0;'><h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Reset Password</h3><p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>Request a reset code sent to your email and set a new password.</p></div>", unsafe_allow_html=True)
+        else:
+            st.markdown(
+                "<div style='padding: 2px 0 10px 0;'>"
+                "<h3 style='margin:0; font-size:1.15rem; color:#f8fafc;'>Reset Password</h3>"
+                "<p style='color:#94a3b8; font-size:0.84rem; margin:3px 0 0 0;'>"
+                "Receive a 6-digit reset code at your registered email address, verify it, and set your new password."
+                "</p>"
+                "</div>",
+                unsafe_allow_html=True
+            )
 
-            step = st.radio("Step", ["1. Request Code", "2. Set Password"], horizontal=True, label_visibility="collapsed")
+            code_sent_email = st.session_state.get("reset_code_sent_to", "")
+            manual_entry = st.session_state.get("manual_code_entry", False)
 
-            if step == "1. Request Code":
-                with st.form("req_reset_form"):
-                    reset_email = st.text_input("Account Email", placeholder="user@example.com", key="req_reset_email").strip()
+            # Stage 1: Request Code
+            if not code_sent_email and not manual_entry:
+                with st.form("single_reset_req_form", clear_on_submit=False):
+                    reset_email = st.text_input(
+                        "Registered Account Email",
+                        placeholder="name@company.com",
+                        key="reset_flow_email"
+                    ).strip()
                     submit_req = st.form_submit_button("Send Reset Code", use_container_width=True, type="primary")
 
                 if submit_req:
                     if not reset_email:
-                        st.error("Please provide your email.")
+                        st.error("Please enter your registered email address.")
                     else:
-                        success, msg = False, ""
+                        success, msg, _ = False, "", None
                         with get_db() as db:
                             success, msg, _ = AuthService.request_password_reset(db=db, email=reset_email)
                         if success:
-                            st.success(f"📩 If an account exists with **{reset_email}**, a reset code has been sent to your inbox.")
+                            st.session_state.reset_code_sent_to = reset_email.lower().strip()
+                            st.rerun()
                         else:
                             st.error(msg)
 
+                # Helper navigation options
+                col_has_code, col_back_login = st.columns(2)
+                with col_has_code:
+                    if st.button("Have a Reset Code?", use_container_width=True, key="btn_already_have_code"):
+                        st.session_state.manual_code_entry = True
+                        st.rerun()
+                with col_back_login:
+                    if st.button("Remember Password? Sign In", use_container_width=True, key="btn_back_to_login_from_req"):
+                        st.session_state.auth_tab = "🔑 Log In"
+                        st.rerun()
+
+            # Stage 2: Code Verification and Set Password in Same Flow
             else:
-                with st.form("exec_reset_form"):
-                    reset_token = st.text_input("Reset Code", placeholder="e.g. 654321", key="exec_reset_token").strip()
-                    new_password = st.text_input("New Password", type="password", placeholder="At least 8 characters (A-Z, 0-9)", key="exec_new_pass")
-                    submit_exec = st.form_submit_button("Update Password", use_container_width=True, type="primary")
+                active_email = code_sent_email or st.session_state.get("reset_exec_email", "")
+
+                if code_sent_email:
+                    st.markdown(f"""
+                    <div style="background: rgba(16, 185, 129, 0.12); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;">
+                        <span style="color: #34d399; font-weight: 600; font-size: 0.92rem;">📩 Reset code sent!</span>
+                        <p style="color: #cbd5e1; font-size: 0.84rem; margin: 4px 0 0 0; line-height: 1.4;">
+                            A 6-digit verification code has been dispatched to <b>{code_sent_email}</b>.
+                            Please enter it below along with your new password.
+                        </p>
+                    </div>
+                    """, unsafe_allow_html=True)
+
+                with st.form("single_reset_exec_form", clear_on_submit=False):
+                    email_for_reset = st.text_input(
+                        "Registered Account Email",
+                        value=active_email,
+                        placeholder="name@company.com",
+                        key="reset_exec_email"
+                    ).strip()
+
+                    reset_token = st.text_input(
+                        "6-Digit Reset Code",
+                        placeholder="e.g. 123456",
+                        key="reset_token_input",
+                        max_chars=10
+                    ).strip()
+
+                    new_pass = st.text_input(
+                        "New Password",
+                        type="password",
+                        placeholder="At least 8 characters (A-Z, 0-9)",
+                        key="reset_new_pass_input"
+                    )
+
+                    new_pass_conf = st.text_input(
+                        "Confirm New Password",
+                        type="password",
+                        placeholder="Repeat new password",
+                        key="reset_new_pass_conf_input"
+                    )
+
+                    submit_exec = st.form_submit_button("✅ Update Password", use_container_width=True, type="primary")
 
                 if submit_exec:
-                    if not reset_token or not new_password:
-                        st.error("Please fill in both the code and new password.")
+                    if not reset_token or not new_pass or not new_pass_conf:
+                        st.error("Please fill in all required fields.")
+                    elif new_pass != new_pass_conf:
+                        st.error("New passwords do not match.")
                     else:
                         success, msg = False, ""
                         with get_db() as db:
-                            success, msg = AuthService.reset_password(db=db, token=reset_token, new_password=new_password)
+                            success, msg = AuthService.reset_password(
+                                db=db,
+                                token=reset_token,
+                                new_password=new_pass,
+                                email=email_for_reset or None
+                            )
                         if success:
-                            st.success(f"✅ {msg} You can now log in with your new password.")
+                            # Clean up reset state
+                            st.session_state.pop("reset_code_sent_to", None)
+                            st.session_state.pop("manual_code_entry", None)
+
+                            # Automatically sign in and navigate directly to workspace dashboard
+                            with get_db() as db:
+                                auth_ok, auth_msg, auth_user = AuthService.authenticate(
+                                    db=db,
+                                    email=email_for_reset,
+                                    password=new_pass
+                                )
+                            if auth_ok and auth_user:
+                                st.session_state.authenticated = True
+                                st.session_state.user = auth_user.to_dict()
+                                st.session_state.user_id = auth_user.id
+                                st.session_state.user_name = auth_user.name
+                                st.session_state.user_email = auth_user.email
+                                st.session_state.user_role = auth_user.role
+                                st.session_state.nav_page = "documents"
+                                st.toast(f"🎉 Password reset successfully! Welcome, {auth_user.name}!")
+                                st.rerun()
+                            else:
+                                # Fallback: redirect to login tab if authentication fails
+                                st.session_state.auth_tab = "🔑 Log In"
+                                st.session_state.login_email = email_for_reset
+                                st.session_state.login_flash_success = "Password updated successfully! Please sign in with your new password."
+                                st.toast("✅ Password updated successfully!")
+                                st.rerun()
                         else:
                             st.error(msg)
+
+                # Resend & Return controls
+                col_res, col_back = st.columns(2)
+                with col_res:
+                    if st.button("🔄 Resend Code", use_container_width=True, help="Send a fresh reset code to your email"):
+                        target_mail = email_for_reset or code_sent_email
+                        if not target_mail:
+                            st.warning("Please enter your registered email above to resend.")
+                        else:
+                            r_ok, r_msg, _ = False, "", None
+                            with get_db() as db:
+                                r_ok, r_msg, _ = AuthService.request_password_reset(db=db, email=target_mail)
+                            if r_ok:
+                                st.session_state.reset_code_sent_to = target_mail.lower().strip()
+                                st.success("✅ A new reset code has been sent.")
+                                st.rerun()
+                            else:
+                                st.error(r_msg)
+
+                with col_back:
+                    if st.button("← Enter Different Email", use_container_width=True):
+                        st.session_state.pop("reset_code_sent_to", None)
+                        st.session_state.pop("manual_code_entry", None)
+                        st.rerun()

@@ -326,6 +326,7 @@ def render_chatbot_tab(user: dict):
                             model=active_model
                         )
                         full_answer = st.write_stream(stream_gen)
+                        full_answer = rag_service.llm_service.clean_answer_boilerplates(full_answer, prompt)
 
                         elapsed_ms = round((time.time() - start_t) * 1000, 2)
                         render_source_citations(documents, elapsed_ms=elapsed_ms, model_name=active_model)

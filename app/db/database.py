@@ -7,29 +7,38 @@ from app.utils.logger import get_logger
 
 logger = get_logger("database")
 
+# Normalize database connection URL
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
 # Ensure local data directory exists if using SQLite
-if settings.DATABASE_URL.startswith("sqlite"):
-    db_path = settings.DATABASE_URL.replace("sqlite:///", "")
+if db_url.startswith("sqlite"):
+    db_path = db_url.replace("sqlite:///", "")
     db_dir = os.path.dirname(db_path)
     if db_dir:
         os.makedirs(db_dir, exist_ok=True)
 
-# Create SQLAlchemy engine
-# SQLite needs check_same_thread=False for multithreading in Streamlit/FastAPI
-connect_args = {"check_same_thread": False} if settings.DATABASE_URL.startswith("sqlite") else {}
+# Create SQLAlchemy engine with optimized connection pooling
+connect_args = {"check_same_thread": False, "timeout": 30} if db_url.startswith("sqlite") else {}
+engine_kwargs = {
+    "connect_args": connect_args,
+    "pool_pre_ping": True
+}
+if not db_url.startswith("sqlite"):
+    engine_kwargs["pool_size"] = 10
+    engine_kwargs["max_overflow"] = 20
 
 from sqlalchemy import event
 
-engine = create_engine(
-    settings.DATABASE_URL,
-    connect_args=connect_args,
-    pool_pre_ping=True
-)
+engine = create_engine(db_url, **engine_kwargs)
 
-if settings.DATABASE_URL.startswith("sqlite"):
+if db_url.startswith("sqlite"):
     @event.listens_for(engine, "connect")
     def set_sqlite_pragma(dbapi_connection, connection_record):
         cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=30000")
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 

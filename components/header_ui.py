@@ -47,7 +47,7 @@ def render_header_ui(user: dict):
     # ========================================================
     # TOP ROW: BRAND IDENTITY & USER PROFILE / STATUS PILLS
     # ========================================================
-    col_brand, col_actions = st.columns([6, 4], vertical_alignment="center")
+    col_brand, col_actions = st.columns([5, 5], vertical_alignment="center")
 
     with col_brand:
         st.markdown(f"""
@@ -70,7 +70,7 @@ def render_header_ui(user: dict):
         """, unsafe_allow_html=True)
 
     with col_actions:
-        col_pills, col_btns = st.columns([1.5, 1.5], vertical_alignment="center")
+        col_pills, col_btns = st.columns([1, 1.8], vertical_alignment="center")
         with col_pills:
             st.markdown(f"""
             <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
@@ -84,12 +84,12 @@ def render_header_ui(user: dict):
             """, unsafe_allow_html=True)
 
         with col_btns:
-            btn_col1, btn_col2 = st.columns(2)
+            btn_col1, btn_col2 = st.columns([1, 1], vertical_alignment="center")
             with btn_col1:
-                if st.button("⚙️", key="btn_header_settings", use_container_width=True, help="Configure Pinecone & Groq API Keys"):
+                if st.button("⚙️ Settings", key="btn_header_settings", use_container_width=True, help="Configure Pinecone & Groq API Keys"):
                     show_settings_dialog(user)
             with btn_col2:
-                if st.button("🚪", key="btn_header_logout", use_container_width=True, help="Log out of DocuMind"):
+                if st.button("🚪 Logout", key="btn_header_logout", use_container_width=True, help="Log out of DocuMind"):
                     with get_db() as db:
                         AuditService.log_event(db, action="USER_LOGOUT", user_id=user_id, details=f"User {user['email']} logged out")
                     st.session_state.authenticated = False

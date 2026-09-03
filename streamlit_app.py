@@ -21,7 +21,11 @@ try:
                 os.environ[k.upper()] = str(v)
             elif hasattr(v, "items"):
                 for sub_k, sub_v in v.items():
-                    os.environ[sub_k.upper()] = str(sub_v)
+                    # Set both compound key (e.g. SMTP_USER) and sub_key (e.g. USER)
+                    compound = f"{k}_{sub_k}".upper()
+                    os.environ[compound] = str(sub_v)
+                    if sub_k.upper() not in ("USER", "PATH", "HOME"):  # Avoid overriding OS system variables
+                        os.environ[sub_k.upper()] = str(sub_v)
 except Exception:
     # No secrets.toml found locally; environment variables and .env are used
     pass
@@ -244,6 +248,20 @@ st.markdown("""
         border-color: rgba(99, 102, 241, 0.4) !important;
         box-shadow: 0 4px 14px rgba(99, 102, 241, 0.2) !important;
         transform: translateY(-1px) !important;
+    }
+
+    /* Header Logout Button Accent */
+    button:has(p:contains("Log Out")),
+    button:has(div:contains("Log Out")) {
+        color: #cbd5e1 !important;
+        border-color: rgba(239, 68, 68, 0.25) !important;
+    }
+    button:has(p:contains("Log Out")):hover,
+    button:has(div:contains("Log Out")):hover {
+        background: rgba(239, 68, 68, 0.15) !important;
+        border-color: rgba(239, 68, 68, 0.5) !important;
+        color: #f87171 !important;
+        box-shadow: 0 4px 14px rgba(239, 68, 68, 0.2) !important;
     }
 
     /* Download Buttons */
@@ -642,7 +660,9 @@ if "authenticated" not in st.session_state:
 # MAIN ROUTER (AUTHENTICATION GUARD)
 # ==========================================
 if not st.session_state.authenticated or not st.session_state.user:
-    render_auth_ui()
+    auth_container = st.empty()
+    with auth_container.container():
+        render_auth_ui()
 else:
     # Current active user
     user = st.session_state.user
