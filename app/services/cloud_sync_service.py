@@ -38,7 +38,7 @@ class CloudSyncService:
         return os.path.abspath(clean_path)
 
     @classmethod
-    def backup_database_to_cloud(cls, force: bool = False) -> bool:
+    def backup_database_to_cloud(cls, force: bool = False, api_key: Optional[str] = None, index_name: Optional[str] = None) -> bool:
         """
         Compresses and snapshots the local SQLite database to Pinecone Cloud.
         """
@@ -55,7 +55,7 @@ class CloudSyncService:
             try:
                 from app.services.vector_service import VectorService
                 vs = VectorService()
-                index = vs._get_index()
+                index = vs._get_index(api_key=api_key, index_name=index_name)
 
                 # Read raw SQLite file
                 with open(db_path, "rb") as f:
@@ -113,7 +113,7 @@ class CloudSyncService:
                 return False
 
     @classmethod
-    def restore_database_from_cloud(cls) -> bool:
+    def restore_database_from_cloud(cls, api_key: Optional[str] = None, index_name: Optional[str] = None) -> bool:
         """
         Fetches and restores the latest SQLite database snapshot from Pinecone Cloud.
         Returns True if database was successfully restored, False otherwise.
@@ -129,7 +129,7 @@ class CloudSyncService:
         try:
             from app.services.vector_service import VectorService
             vs = VectorService()
-            index = vs._get_index()
+            index = vs._get_index(api_key=api_key, index_name=index_name)
 
             # 1. Fetch manifest
             manifest_res = index.fetch(ids=["db_manifest"], namespace="__db_backup__")

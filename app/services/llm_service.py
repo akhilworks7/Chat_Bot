@@ -1,3 +1,4 @@
+import os
 from typing import List, Dict, Any, Optional
 from groq import Groq
 from groq import RateLimitError, AuthenticationError, APIConnectionError, APIError
@@ -32,8 +33,24 @@ class LLMService:
             cls._instance = super(LLMService, cls).__new__(cls)
         return cls._instance
 
+    def _resolve_groq_key(self, api_key: Optional[str] = None) -> str:
+        if api_key and str(api_key).strip():
+            return str(api_key).strip()
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and len(st.secrets) > 0:
+                if "GROQ_API_KEY" in st.secrets:
+                    return str(st.secrets["GROQ_API_KEY"]).strip()
+                if "groq_api_key" in st.secrets:
+                    return str(st.secrets["groq_api_key"]).strip()
+                if "groq" in st.secrets and "api_key" in st.secrets["groq"]:
+                    return str(st.secrets["groq"]["api_key"]).strip()
+        except Exception:
+            pass
+        return os.environ.get("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", "")
+
     def _get_client(self, api_key: Optional[str] = None) -> Groq:
-        key = api_key or settings.GROQ_API_KEY
+        key = self._resolve_groq_key(api_key)
         if not key:
             raise GroqAuthException("No Groq API Key configured.")
 

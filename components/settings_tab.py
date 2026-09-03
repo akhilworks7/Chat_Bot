@@ -221,7 +221,7 @@ def render_settings_content(user: dict, in_dialog: bool = False):
             # Immediately sync entire database snapshot to cloud so credentials survive reboots permanently
             try:
                 from app.services.cloud_sync_service import CloudSyncService
-                CloudSyncService.backup_database_to_cloud()
+                CloudSyncService.backup_database_to_cloud(api_key=p_val, index_name=p_idx)
             except Exception:
                 pass
 

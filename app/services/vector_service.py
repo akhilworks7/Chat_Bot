@@ -1,3 +1,5 @@
+import os
+import time
 from typing import List, Dict, Any, Optional
 from pinecone import Pinecone, ServerlessSpec
 from pinecone.exceptions import PineconeApiException, PineconeException
@@ -33,8 +35,40 @@ class VectorService:
             cls._instance = super(VectorService, cls).__new__(cls)
         return cls._instance
 
+    def _resolve_pinecone_key(self, api_key: Optional[str] = None) -> str:
+        if api_key and str(api_key).strip():
+            return str(api_key).strip()
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and len(st.secrets) > 0:
+                if "PINECONE_API_KEY" in st.secrets:
+                    return str(st.secrets["PINECONE_API_KEY"]).strip()
+                if "pinecone_api_key" in st.secrets:
+                    return str(st.secrets["pinecone_api_key"]).strip()
+                if "pinecone" in st.secrets and "api_key" in st.secrets["pinecone"]:
+                    return str(st.secrets["pinecone"]["api_key"]).strip()
+        except Exception:
+            pass
+        return os.environ.get("PINECONE_API_KEY") or getattr(settings, "PINECONE_API_KEY", "")
+
+    def _resolve_pinecone_index(self, index_name: Optional[str] = None) -> str:
+        if index_name and str(index_name).strip():
+            return str(index_name).strip()
+        try:
+            import streamlit as st
+            if hasattr(st, "secrets") and len(st.secrets) > 0:
+                if "PINECONE_INDEX_NAME" in st.secrets:
+                    return str(st.secrets["PINECONE_INDEX_NAME"]).strip()
+                if "PINECONE_INDEX" in st.secrets:
+                    return str(st.secrets["PINECONE_INDEX"]).strip()
+                if "pinecone_index" in st.secrets:
+                    return str(st.secrets["pinecone_index"]).strip()
+        except Exception:
+            pass
+        return os.environ.get("PINECONE_INDEX_NAME") or getattr(settings, "PINECONE_INDEX_NAME", "pdf-rag1-index")
+
     def _get_client(self, api_key: Optional[str] = None) -> Pinecone:
-        key = api_key or settings.PINECONE_API_KEY
+        key = self._resolve_pinecone_key(api_key)
         if not key:
             raise PineconeAuthException("No Pinecone API Key configured.")
 
@@ -44,8 +78,8 @@ class VectorService:
         return self._clients[key]
 
     def _get_index(self, api_key: Optional[str] = None, index_name: Optional[str] = None) -> Any:
-        key = api_key or settings.PINECONE_API_KEY
-        idx_name = index_name or settings.PINECONE_INDEX_NAME
+        key = self._resolve_pinecone_key(api_key)
+        idx_name = self._resolve_pinecone_index(index_name)
         cache_key = f"{key}_{idx_name}"
 
         if cache_key not in self._indexes:
