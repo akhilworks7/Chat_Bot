@@ -27,6 +27,26 @@ class CredentialService:
         crypto = CryptoService()
         creds = crud.get_user_credentials(db, user_id)
 
+        # If credentials are not in local SQLite (e.g. after a reboot), attempt cloud hydration
+        if not (creds and creds.pinecone_api_key_encrypted and creds.groq_api_key_encrypted):
+            try:
+                user_obj = crud.get_user_by_id(db, user_id)
+                if user_obj and user_obj.email:
+                    from app.services.vector_service import VectorService
+                    cloud_c = VectorService().load_user_credentials_from_cloud(user_obj.email)
+                    if cloud_c and cloud_c.get("pinecone_key") and cloud_c.get("groq_key"):
+                        creds = crud.upsert_user_credentials(
+                            db=db,
+                            user_id=user_id,
+                            pinecone_api_key_encrypted=crypto.encrypt(cloud_c["pinecone_key"]),
+                            pinecone_index=cloud_c.get("pinecone_index", settings.PINECONE_INDEX_NAME),
+                            groq_api_key_encrypted=crypto.encrypt(cloud_c["groq_key"]),
+                            groq_model=cloud_c.get("groq_model", settings.GROQ_MODEL)
+                        )
+                        logger.info(f"Auto-hydrated BYOK credentials from Pinecone Cloud for user #{user_id}")
+            except Exception as e:
+                logger.warning(f"Note on auto-hydrating credentials from cloud: {e}")
+
         if creds and creds.pinecone_api_key_encrypted and creds.groq_api_key_encrypted:
             p_key = crypto.decrypt(creds.pinecone_api_key_encrypted)
             g_key = crypto.decrypt(creds.groq_api_key_encrypted)

@@ -42,6 +42,13 @@ from app.db import crud
 
 @st.cache_resource(show_spinner=False)
 def setup_system():
+    # 1. Automatically restore complete database from Pinecone Cloud if running fresh after reboot/sleep
+    try:
+        from app.services.cloud_sync_service import CloudSyncService
+        CloudSyncService.restore_database_from_cloud()
+    except Exception:
+        pass
+
     init_db()
     with get_db() as db:
         crud.seed_initial_data(db)

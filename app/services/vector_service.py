@@ -509,3 +509,223 @@ class VectorService:
         except Exception as e:
             logger.warning(f"Note on loading system config from Pinecone Cloud: {e}")
             return {}
+
+    def save_user_credentials_to_cloud(
+        self,
+        user_email: str,
+        creds_dict: Dict[str, Any],
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> bool:
+        """
+        Persists personal BYOK API keys (Pinecone & Groq) for a specific user into Pinecone Cloud.
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            dim = getattr(settings, "EMBEDDING_DIMENSION", 384)
+            dummy_vector = [0.001] * dim
+            clean_email = user_email.lower().strip()
+            clean_meta = {
+                "user_email": clean_email,
+                "pinecone_key": creds_dict.get("pinecone_key", ""),
+                "pinecone_index": creds_dict.get("pinecone_index", ""),
+                "groq_key": creds_dict.get("groq_key", ""),
+                "groq_model": creds_dict.get("groq_model", "openai/gpt-oss-20b"),
+                "updated_at": str(time.time())
+            }
+            index.upsert(
+                vectors=[{
+                    "id": f"user_creds_{clean_email}",
+                    "values": dummy_vector,
+                    "metadata": clean_meta
+                }],
+                namespace="__system_config__"
+            )
+            self._register_cloud_user_email(clean_email, api_key, index_name)
+            logger.info(f"Persisted BYOK credentials for '{clean_email}' to Pinecone Cloud.")
+            return True
+        except Exception as e:
+            logger.warning(f"Error persisting user credentials to cloud: {e}")
+            return False
+
+    def load_user_credentials_from_cloud(
+        self,
+        user_email: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Retrieves personal BYOK API keys (Pinecone & Groq) for a specific user from Pinecone Cloud.
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            clean_email = user_email.lower().strip()
+            target_id = f"user_creds_{clean_email}"
+            fetched = index.fetch(ids=[target_id], namespace="__system_config__")
+            raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+            if target_id in raw_vecs:
+                target = raw_vecs[target_id]
+                meta = getattr(target, "metadata", {}) or (target.get("metadata", {}) if isinstance(target, dict) else {})
+                if isinstance(meta, dict) and meta.get("pinecone_key") and meta.get("groq_key"):
+                    logger.info(f"Loaded persisted BYOK credentials for '{clean_email}' from Pinecone Cloud.")
+                    return meta
+            return {}
+        except Exception as e:
+            logger.warning(f"Note on loading user credentials from cloud for '{user_email}': {e}")
+            return {}
+
+    def delete_user_credentials_from_cloud(
+        self,
+        user_email: str,
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> bool:
+        """
+        Removes personal BYOK API keys from Pinecone Cloud when user reverts to shared credentials or deletes them.
+        """
+        try:
+            index = self._get_index(api_key, index_name)
+            clean_email = user_email.lower().strip()
+            target_id = f"user_creds_{clean_email}"
+            index.delete(ids=[target_id], namespace="__system_config__")
+            logger.info(f"Deleted BYOK credentials for '{clean_email}' from Pinecone Cloud.")
+            return True
+        except Exception as e:
+            logger.warning(f"Note on deleting user credentials from cloud: {e}")
+            return False
+
+    def _register_cloud_user_email(self, email: str, api_key: Optional[str] = None, index_name: Optional[str] = None):
+        """Maintains the active list of user emails in the cloud catalog."""
+        try:
+            index = self._get_index(api_key, index_name)
+            fetched = index.fetch(ids=["documind_users_registry"], namespace="__system_config__")
+            raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+            emails = []
+            if "documind_users_registry" in raw_vecs:
+                meta = getattr(raw_vecs["documind_users_registry"], "metadata", {}) or {}
+                raw_list = meta.get("emails", [])
+                if isinstance(raw_list, list):
+                    emails = list(raw_list)
+                elif isinstance(raw_list, str):
+                    emails = [e.strip() for e in raw_list.split(",") if e.strip()]
+            if email not in emails:
+                emails.append(email)
+                dim = getattr(settings, "EMBEDDING_DIMENSION", 384)
+                index.upsert(
+                    vectors=[{
+                        "id": "documind_users_registry",
+                        "values": [0.001] * dim,
+                        "metadata": {"emails": emails}
+                    }],
+                    namespace="__system_config__"
+                )
+        except Exception as e:
+            logger.warning(f"Note on registering cloud user email: {e}")
+
+    def save_user_account_to_cloud(
+        self,
+        email: str,
+        name: str,
+        password_hash: str,
+        role: str = "user",
+        api_key: Optional[str] = None,
+        index_name: Optional[str] = None
+    ) -> bool:
+        """
+        Persists a registered user account to Pinecone Cloud so that accounts survive reboots.
+        """
+        try:
+            import base64
+            index = self._get_index(api_key, index_name)
+            dim = getattr(settings, "EMBEDDING_DIMENSION", 384)
+            clean_email = email.lower().strip()
+            b64_hash = base64.b64encode(password_hash.encode("utf-8")).decode("utf-8") if password_hash else ""
+            meta = {
+                "email": clean_email,
+                "name": name or "User",
+                "password_hash_b64": b64_hash,
+                "role": role or "user"
+            }
+            index.upsert(
+                vectors=[{
+                    "id": f"user_account_{clean_email}",
+                    "values": [0.001] * dim,
+                    "metadata": meta
+                }],
+                namespace="__system_config__"
+            )
+            self._register_cloud_user_email(clean_email, api_key, index_name)
+            logger.info(f"Persisted user account '{clean_email}' to Pinecone Cloud.")
+            return True
+        except Exception as e:
+            logger.warning(f"Error persisting user account to cloud: {e}")
+            return False
+
+    def sync_all_users_from_cloud(self, db, api_key: Optional[str] = None, index_name: Optional[str] = None):
+        """
+        Hydrates all registered users and their BYOK credentials from Pinecone Cloud into SQLite.
+        """
+        try:
+            import base64
+            from app.db import crud
+            from app.services.crypto_service import CryptoService
+            crypto = CryptoService()
+
+            index = self._get_index(api_key, index_name)
+            fetched = index.fetch(ids=["documind_users_registry"], namespace="__system_config__")
+            raw_vecs = getattr(fetched, "vectors", {}) or (fetched.get("vectors", {}) if isinstance(fetched, dict) else {})
+            if "documind_users_registry" not in raw_vecs:
+                return
+
+            meta = getattr(raw_vecs["documind_users_registry"], "metadata", {}) or {}
+            raw_emails = meta.get("emails", [])
+            emails = raw_emails if isinstance(raw_emails, list) else [e.strip() for e in str(raw_emails).split(",") if e.strip()]
+
+            if not emails:
+                return
+
+            target_ids = [f"user_account_{e}" for e in emails] + [f"user_creds_{e}" for e in emails]
+            batch_fetch = index.fetch(ids=target_ids, namespace="__system_config__")
+            batch_vecs = getattr(batch_fetch, "vectors", {}) or (batch_fetch.get("vectors", {}) if isinstance(batch_fetch, dict) else {})
+
+            for email in emails:
+                acc_id = f"user_account_{email}"
+                user_obj = crud.get_user_by_email(db, email)
+                if acc_id in batch_vecs:
+                    acc_meta = getattr(batch_vecs[acc_id], "metadata", {}) or (batch_vecs[acc_id].get("metadata", {}) if isinstance(batch_vecs[acc_id], dict) else {})
+                    b64_hash = acc_meta.get("password_hash_b64", "")
+                    raw_hash = base64.b64decode(b64_hash.encode("utf-8")).decode("utf-8") if b64_hash else ""
+                    user_name = acc_meta.get("name", "User")
+                    user_role = acc_meta.get("role", "user")
+
+                    if not user_obj and raw_hash:
+                        user_obj = crud.create_user(
+                            db=db,
+                            email=email,
+                            password_hash=raw_hash,
+                            name=user_name,
+                            role=user_role,
+                            email_verified=True
+                        )
+                        logger.info(f"Restored user account '{email}' from Pinecone Cloud.")
+
+                # Restore credentials if present
+                creds_id = f"user_creds_{email}"
+                if user_obj and creds_id in batch_vecs:
+                    c_meta = getattr(batch_vecs[creds_id], "metadata", {}) or (batch_vecs[creds_id].get("metadata", {}) if isinstance(batch_vecs[creds_id], dict) else {})
+                    p_key = c_meta.get("pinecone_key", "")
+                    g_key = c_meta.get("groq_key", "")
+                    p_idx = c_meta.get("pinecone_index", settings.PINECONE_INDEX_NAME)
+                    g_mod = c_meta.get("groq_model", settings.GROQ_MODEL)
+                    if p_key and g_key:
+                        crud.upsert_user_credentials(
+                            db=db,
+                            user_id=user_obj.id,
+                            pinecone_api_key_encrypted=crypto.encrypt(p_key),
+                            pinecone_index=p_idx,
+                            groq_api_key_encrypted=crypto.encrypt(g_key),
+                            groq_model=g_mod
+                        )
+                        logger.info(f"Restored BYOK credentials for user '{email}' from Pinecone Cloud.")
+        except Exception as e:
+            logger.warning(f"Note on syncing users from cloud storage: {e}")

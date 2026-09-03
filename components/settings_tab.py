@@ -178,6 +178,12 @@ def render_settings_content(user: dict, in_dialog: bool = False):
                         user_id=user_id,
                         details="Removed personal BYOK API keys"
                     )
+                # Immediately sync removal to cloud so it is removed everywhere permanently
+                try:
+                    from app.services.cloud_sync_service import CloudSyncService
+                    CloudSyncService.backup_database_to_cloud()
+                except Exception:
+                    pass
                 st.toast("Reverted to shared application credentials.")
                 st.rerun()
 
@@ -211,6 +217,13 @@ def render_settings_content(user: dict, in_dialog: bool = False):
                     user_id=user_id,
                     details="Configured personal Pinecone and Groq API keys"
                 )
+
+            # Immediately sync entire database snapshot to cloud so credentials survive reboots permanently
+            try:
+                from app.services.cloud_sync_service import CloudSyncService
+                CloudSyncService.backup_database_to_cloud()
+            except Exception:
+                pass
 
             st.toast("Credentials securely encrypted and saved! BYOK mode active.")
             st.rerun()

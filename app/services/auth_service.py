@@ -299,6 +299,13 @@ class AuthService:
             details=f"User {user.email} completed email verification and account activation"
         )
 
+        db.commit()
+        try:
+            from app.services.cloud_sync_service import CloudSyncService
+            CloudSyncService.backup_database_to_cloud()
+        except Exception:
+            pass
+
         return True, "Email verified and account activated successfully!", user
 
     @classmethod
@@ -491,6 +498,13 @@ class AuthService:
             user_id=user.id,
             details=f"Password successfully reset for {user.email}"
         )
+        db.commit()
+        try:
+            from app.services.cloud_sync_service import CloudSyncService
+            CloudSyncService.backup_database_to_cloud()
+        except Exception:
+            pass
+
         return True, "Password has been reset successfully! You can now log in."
 
     @classmethod
@@ -546,6 +560,14 @@ class AuthService:
 
         # 4. Cascade Delete from all Database Tables
         crud.delete_user(db, user_id)
+        db.commit()
+
+        # 5. Immediately sync deletion across cloud storage so it is removed everywhere
+        try:
+            from app.services.cloud_sync_service import CloudSyncService
+            CloudSyncService.backup_database_to_cloud()
+        except Exception:
+            pass
 
         logger.info(f"Successfully purged all data for user #{user_id} ({user_email})")
         return True, f"User #{user_id} ({user_email}) and all associated data permanently deleted."

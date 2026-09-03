@@ -57,12 +57,22 @@ def get_db():
     try:
         yield db
         db.commit()
+        try:
+            from app.services.cloud_sync_service import CloudSyncService
+            CloudSyncService.trigger_background_backup()
+        except Exception:
+            pass
     except Exception as e:
         # Check if exception is Streamlit's internal RerunException or StopException
         type_name = type(e).__name__
         if "Rerun" in type_name or "Stop" in type_name:
             try:
                 db.commit()
+                try:
+                    from app.services.cloud_sync_service import CloudSyncService
+                    CloudSyncService.trigger_background_backup()
+                except Exception:
+                    pass
             except Exception:
                 db.rollback()
             raise e

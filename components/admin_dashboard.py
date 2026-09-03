@@ -305,6 +305,14 @@ def render_admin_dashboard(admin_user: dict):
                         user_id=admin_user["id"],
                         details="Updated system policies and SMTP configuration (synced to cloud)"
                     )
+
+                # Immediately snapshot entire database to Pinecone Cloud
+                try:
+                    from app.services.cloud_sync_service import CloudSyncService
+                    CloudSyncService.backup_database_to_cloud()
+                except Exception:
+                    pass
+
                 st.success("✅ System and SMTP settings saved & synced to permanent cloud storage!")
                 st.session_state["smtp_updated_alert"] = True
                 st.rerun()
