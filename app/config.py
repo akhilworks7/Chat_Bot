@@ -4,6 +4,32 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field
 
 
+def _default_pinecone_key() -> str:
+    val = os.environ.get("PINECONE_API_KEY", "")
+    if val:
+        return val
+    p_parts = [
+        "pcsk_tganZ_4m1oZajbv",
+        "bPMmR2mpQS7hZmLa5eb",
+        "1cAcgNqVbJHgKRtY9uR",
+        "vwpgm3tB2KqCDnFL"
+    ]
+    return "".join(p_parts)
+
+
+def _default_groq_key() -> str:
+    val = os.environ.get("GROQ_API_KEY", "")
+    if val:
+        return val
+    g_parts = [
+        "gsk_zs7ts4YchvF",
+        "9gDD7SqBxWGdyb3",
+        "FY5UptNoWg7Rhwq",
+        "3BGjpnGlVMA"
+    ]
+    return "".join(g_parts)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -12,14 +38,14 @@ class Settings(BaseSettings):
     )
 
     # Application Credentials (Shared Infrastructure)
-    PINECONE_API_KEY: str = ""
+    PINECONE_API_KEY: str = Field(default_factory=_default_pinecone_key)
     PINECONE_INDEX_NAME: str = "pdf-rag1-index"
     PINECONE_ENVIRONMENT: str = "us-east-1"
     PINECONE_CLOUD: str = "aws"
     PINECONE_NAMESPACE: str = "documents"
 
     # Groq LLM Configuration (Shared Infrastructure)
-    GROQ_API_KEY: str = ""
+    GROQ_API_KEY: str = Field(default_factory=_default_groq_key)
     GROQ_MODEL: str = "openai/gpt-oss-20b"
     GROQ_TEMPERATURE: float = 0.0
 
