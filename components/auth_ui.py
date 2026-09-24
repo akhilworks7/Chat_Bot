@@ -13,12 +13,12 @@ def render_auth_ui():
     - Reset Password: Unified single flow with automatic navigation to Login upon success.
     """
     st.markdown("""
-    <div style="text-align:center; padding: 1.5rem 0 1rem 0;">
-        <div style="font-size: 2.8rem; line-height: 1; filter: drop-shadow(0 6px 20px rgba(99, 102, 241, 0.6)); margin-bottom: 8px;">🧠</div>
-        <h1 style="font-size: clamp(1.8rem, 5vw, 2.5rem); font-weight: 900; background: linear-gradient(135deg, #60a5fa 0%, #a855f7 50%, #f43f5e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.03em; margin: 0;">
+    <div style="text-align:center; padding: 0.8rem 0 0.6rem 0;">
+        <div style="font-size: 2.5rem; line-height: 1; filter: drop-shadow(0 6px 20px rgba(99, 102, 241, 0.6)); margin-bottom: 6px;">🧠</div>
+        <h1 style="font-size: clamp(1.65rem, 5vw, 2.3rem); font-weight: 900; background: linear-gradient(135deg, #60a5fa 0%, #a855f7 50%, #f43f5e 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: -0.03em; margin: 0;">
             DocuMind AI
         </h1>
-        <p style="color: #94a3b8; font-size: clamp(0.85rem, 2.5vw, 1.02rem); margin-top: 6px; font-weight: 500;">
+        <p style="color: #94a3b8; font-size: clamp(0.78rem, 2.5vw, 0.95rem); margin-top: 4px; font-weight: 500;">
             Enterprise Multi-Tenant RAG with Isolated Vector Workspaces
         </p>
     </div>
@@ -30,6 +30,7 @@ def render_auth_ui():
     col_pad_left, col_card, col_pad_right = st.columns([1, 2.2, 1])
 
     with col_card:
+        st.markdown('<div class="auth-card-anchor" style="display:none;"></div>', unsafe_allow_html=True)
         # ====================================================
         # PROGRAMMATICALLY CONTROLLABLE NAVIGATION BAR
         # ====================================================

@@ -344,6 +344,17 @@ st.markdown("""
         transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
+    /* Auth Glassmorphic Card Container applied directly to column */
+    div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="column"]:nth-child(2),
+    div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="stColumn"]:nth-child(2) {
+        background: rgba(15, 23, 42, 0.65) !important;
+        border: 1px solid rgba(99, 102, 241, 0.3) !important;
+        border-radius: 20px !important;
+        padding: 24px 24px !important;
+        box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5), 0 0 35px rgba(99, 102, 241, 0.15) !important;
+        backdrop-filter: blur(16px) !important;
+    }
+
     .source-card:hover {
         border-color: rgba(99, 102, 241, 0.3) !important;
         box-shadow: 0 6px 28px rgba(0, 0, 0, 0.35);
@@ -586,6 +597,12 @@ st.markdown("""
             gap: 6px !important;
         }
 
+        /* Auth Card Padding & Width on Mobile */
+        .auth-card-wrapper {
+            padding: 16px 14px !important;
+            border-radius: 16px !important;
+        }
+
         /* 1. BUTTON BLOCKS: PRESERVE HORIZONTAL ROW LAYOUT FOR ALL BUTTON GROUPS (Header Nav, Settings/Logout, Auth tabs) */
         div[data-testid="stHorizontalBlock"]:has(div.stButton),
         div[data-testid="stHorizontalBlock"]:has(button) {
@@ -600,6 +617,25 @@ st.markdown("""
             flex: 1 1 0px !important;
             min-width: 0 !important;
             width: auto !important;
+        }
+
+        /* Mobile Auth Card: Hide empty side padding columns, stretch center card to 100% width */
+        div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="column"]:first-child,
+        div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="column"]:last-child,
+        div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="stColumn"]:first-child,
+        div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="stColumn"]:last-child {
+            display: none !important;
+            width: 0 !important;
+            flex: 0 0 0px !important;
+        }
+
+        div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="column"]:nth-child(2),
+        div[data-testid="stHorizontalBlock"]:has(div.auth-card-anchor) > div[data-testid="stColumn"]:nth-child(2) {
+            flex: 1 1 100% !important;
+            width: 100% !important;
+            min-width: 100% !important;
+            padding: 18px 12px !important;
+            border-radius: 16px !important;
         }
 
         /* Button font & touch target sizing on mobile */
