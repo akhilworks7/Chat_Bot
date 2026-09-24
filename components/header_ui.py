@@ -53,7 +53,7 @@ def render_header_ui(user: dict):
 
     with col_brand:
         st.markdown(f"""
-        <div style="display: flex; align-items: center; gap: 12px; padding: 2px 0;">
+        <div class="header-brand-container" style="display: flex; align-items: center; gap: 12px; padding: 2px 0;">
             <div style="font-size: 2.2rem; line-height: 1; filter: drop-shadow(0 4px 14px rgba(99, 102, 241, 0.55));">🧠</div>
             <div style="min-width: 0;">
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
@@ -75,7 +75,7 @@ def render_header_ui(user: dict):
         col_pills, col_btns = st.columns([1, 1.8], vertical_alignment="center")
         with col_pills:
             st.markdown(f"""
-            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+            <div class="header-pills-container" style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
                 <div style="background: {mode_bg}; border: 1px solid {mode_border}; color: {mode_color}; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem; font-weight: 700; white-space: nowrap;">
                     {mode_pill}
                 </div>

@@ -122,7 +122,7 @@ class CloudSyncService:
                 return False
 
     @classmethod
-    def restore_database_from_cloud(cls, api_key: Optional[str] = None, index_name: Optional[str] = None) -> bool:
+    def restore_database_from_cloud(cls, force: bool = False, api_key: Optional[str] = None, index_name: Optional[str] = None) -> bool:
         """
         Fetches and restores the latest SQLite database snapshot from Pinecone Cloud.
         Returns True if database was successfully restored, False otherwise.
@@ -131,6 +131,10 @@ class CloudSyncService:
             return False
 
         db_path = cls.get_sqlite_path()
+        if not force and os.path.exists(db_path) and os.path.getsize(db_path) > 0:
+            logger.info(f"Local SQLite database exists at {db_path}. Skipping cloud download for instant page load.")
+            return True
+
         db_dir = os.path.dirname(db_path)
         if db_dir:
             os.makedirs(db_dir, exist_ok=True)

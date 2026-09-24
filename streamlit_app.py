@@ -556,92 +556,184 @@ st.markdown("""
         div[data-testid="stMetric"] {
             margin-bottom: 8px !important;
         }
+
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) > div[data-testid="stColumn"] {
+            flex: 1 1 calc(50% - 8px) !important;
+            min-width: calc(50% - 8px) !important;
+            width: calc(50% - 8px) !important;
+        }
     }
 
     /* Mobile Phones Viewports (max-width: 768px) */
     @media screen and (max-width: 768px) {
         .block-container {
-            padding-top: 0.75rem !important;
-            padding-left: 0.65rem !important;
-            padding-right: 0.65rem !important;
-            padding-bottom: 2.5rem !important;
+            padding-top: 0.5rem !important;
+            padding-left: 0.5rem !important;
+            padding-right: 0.5rem !important;
+            padding-bottom: 2rem !important;
         }
 
         /* Headings scale down gracefully on mobile */
-        h1 {
-            font-size: 1.75rem !important;
-        }
-        h2 {
-            font-size: 1.45rem !important;
-        }
-        h3 {
-            font-size: 1.2rem !important;
-        }
-        h4 {
-            font-size: 1.05rem !important;
-        }
+        h1 { font-size: 1.45rem !important; }
+        h2 { font-size: 1.25rem !important; }
+        h3 { font-size: 1.1rem !important; }
+        h4 { font-size: 0.95rem !important; }
 
-        /* Metric values smaller on mobile */
-        div[data-testid="stMetricValue"] {
-            font-size: 1.35rem !important;
-        }
-        div[data-testid="stMetricLabel"] {
-            font-size: 0.72rem !important;
-        }
-
-        /* Streamlit columns flex-wrap on mobile so they don't crush */
+        /* General Horizontal Block flex-wrap */
         div[data-testid="stHorizontalBlock"] {
             flex-wrap: wrap !important;
             gap: 6px !important;
         }
 
-        /* Buttons on mobile take full width & comfortable touch targets */
-        div.stButton > button {
-            min-height: 2.6rem !important;
-            font-size: 0.85rem !important;
-            padding: 8px 12px !important;
+        /* 1. BUTTON BLOCKS: PRESERVE HORIZONTAL ROW LAYOUT FOR ALL BUTTON GROUPS (Header Nav, Settings/Logout, Auth tabs) */
+        div[data-testid="stHorizontalBlock"]:has(div.stButton),
+        div[data-testid="stHorizontalBlock"]:has(button) {
+            flex-wrap: nowrap !important;
+            gap: 4px !important;
         }
 
-        /* Floating buttons position on mobile */
+        div[data-testid="stHorizontalBlock"]:has(div.stButton) > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(div.stButton) > div[data-testid="stColumn"],
+        div[data-testid="stHorizontalBlock"]:has(button) > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(button) > div[data-testid="stColumn"] {
+            flex: 1 1 0px !important;
+            min-width: 0 !important;
+            width: auto !important;
+        }
+
+        /* Button font & touch target sizing on mobile */
+        div.stButton > button,
+        div[data-testid="stDownloadButton"] > button {
+            min-height: 2.2rem !important;
+            font-size: 0.78rem !important;
+            padding: 4px 6px !important;
+            white-space: nowrap !important;
+        }
+
+        /* 2. METRIC BLOCKS: 2-column grid on mobile */
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) {
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) > div[data-testid="stColumn"] {
+            flex: 1 1 calc(50% - 4px) !important;
+            min-width: calc(50% - 4px) !important;
+            width: calc(50% - 4px) !important;
+        }
+        div[data-testid="stMetric"] {
+            padding: 8px 10px !important;
+            margin-bottom: 4px !important;
+        }
+        div[data-testid="stMetricValue"] { font-size: 1.2rem !important; }
+        div[data-testid="stMetricLabel"] { font-size: 0.68rem !important; }
+
+        /* 3. DOCUMENT CARDS ACTION ROW (PDF, Text, Delete) */
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stDownloadButton"]) {
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stDownloadButton"]) > div[data-testid="column"]:first-child {
+            flex: 1 1 100% !important;
+            min-width: 100% !important;
+            width: 100% !important;
+        }
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stDownloadButton"]) > div[data-testid="column"]:not(:first-child) {
+            flex: 1 1 calc(33.33% - 6px) !important;
+            min-width: calc(33.33% - 6px) !important;
+            width: calc(33.33% - 6px) !important;
+        }
+
+        /* Header Brand & Pills responsive alignment */
+        .header-brand-container {
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+        }
+        .header-pills-container {
+            align-items: flex-start !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            gap: 4px !important;
+            margin-top: 2px !important;
+            margin-bottom: 2px !important;
+        }
+
+        /* Floating navigation buttons on mobile */
         .scroll-top-btn, .scroll-bottom-btn {
-            right: 12px !important;
-            padding: 5px 10px !important;
-            font-size: 0.72rem !important;
+            right: 8px !important;
+            padding: 4px 8px !important;
+            font-size: 0.70rem !important;
         }
-        .scroll-top-btn {
-            bottom: 74px !important;
-        }
-        .scroll-bottom-btn {
-            top: 70px !important;
-        }
+        .scroll-top-btn { bottom: 74px !important; }
+        .scroll-bottom-btn { top: 70px !important; }
 
         /* Chat messages padding on mobile */
         div[data-testid="stChatMessage"] {
             padding: 10px 12px !important;
             border-radius: 12px !important;
             margin-bottom: 10px !important;
-            font-size: 0.92rem !important;
+            font-size: 0.90rem !important;
         }
 
         /* Card padding on mobile */
         .stCard, .source-card, .glass-panel {
-            padding: 12px 14px !important;
+            padding: 10px 12px !important;
             border-radius: 12px !important;
+        }
+
+        /* File Uploader Dropzone mobile padding */
+        section[data-testid="stFileUploadDropzone"] {
+            padding: 12px 10px !important;
+        }
+
+        /* Modal Dialog max width on mobile */
+        div[data-testid="stDialog"] div[role="dialog"] {
+            width: 95vw !important;
+            max-width: 95vw !important;
+            padding: 14px 12px !important;
+        }
+    }
+
+        /* Card padding on mobile */
+        .stCard, .source-card, .glass-panel {
+            padding: 12px 12px !important;
+            border-radius: 12px !important;
+        }
+
+        /* File Uploader Dropzone mobile padding */
+        section[data-testid="stFileUploadDropzone"] {
+            padding: 14px 10px !important;
+        }
+
+        /* Modal Dialog max width on mobile */
+        div[data-testid="stDialog"] div[role="dialog"] {
+            width: 95vw !important;
+            max-width: 95vw !important;
+            padding: 14px 12px !important;
         }
     }
 
     /* Small Mobile Phones (max-width: 480px) */
     @media screen and (max-width: 480px) {
         .block-container {
-            padding-left: 0.5rem !important;
-            padding-right: 0.5rem !important;
+            padding-left: 0.4rem !important;
+            padding-right: 0.4rem !important;
         }
 
         h1 {
-            font-size: 1.5rem !important;
+            font-size: 1.4rem !important;
         }
 
-        /* Hide floating buttons on very small screens to avoid obstructing view */
+        /* 2-column metrics tighter gaps on small screens */
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) > div[data-testid="column"],
+        div[data-testid="stHorizontalBlock"]:has(div[data-testid="stMetric"]) > div[data-testid="stColumn"] {
+            flex: 1 1 calc(50% - 4px) !important;
+            min-width: calc(50% - 4px) !important;
+            width: calc(50% - 4px) !important;
+        }
+
+        /* Hide floating buttons on tiny screens so they don't block content */
         .scroll-top-btn, .scroll-bottom-btn {
             display: none !important;
         }

@@ -80,39 +80,78 @@ class VectorService:
     def _get_index(self, api_key: Optional[str] = None, index_name: Optional[str] = None) -> Any:
         key = self._resolve_pinecone_key(api_key)
         idx_name = self._resolve_pinecone_index(index_name)
-        cache_key = f"{key}_{idx_name}"
+        client = self._get_client(key)
+        actual_idx_name = self._ensure_index_exists(client, idx_name)
+        cache_key = f"{key}_{actual_idx_name}"
 
         if cache_key not in self._indexes:
-            client = self._get_client(key)
-            self._ensure_index_exists(client, idx_name)
             try:
-                self._indexes[cache_key] = client.Index(idx_name)
-                logger.info(f"Connected to Pinecone index: '{idx_name}'")
+                self._indexes[cache_key] = client.Index(actual_idx_name)
+                logger.info(f"Connected to Pinecone index: '{actual_idx_name}'")
             except Exception as e:
+                # If Index connection fails, try falling back to system default index
+                try:
+                    default_idx = settings.PINECONE_INDEX_NAME
+                    if default_idx != actual_idx_name and client.has_index(default_idx):
+                        logger.info(f"Falling back to system default index: '{default_idx}'")
+                        self._indexes[cache_key] = client.Index(default_idx)
+                        return self._indexes[cache_key]
+                except Exception:
+                    pass
                 self._handle_pinecone_error(e)
         return self._indexes[cache_key]
 
-    def _ensure_index_exists(self, client: Pinecone, index_name: str):
+    def _ensure_index_exists(self, client: Pinecone, index_name: str) -> str:
         """
         Creates serverless index if it doesn't already exist in Pinecone.
+        If requested index doesn't exist and cannot be created due to max index quota (5 serverless indexes),
+        falls back to an existing active index in the account.
+        Returns the resolved index_name that actually exists.
         """
         try:
-            if not client.has_index(index_name):
+            active_indexes = []
+            try:
+                listed = client.list_indexes()
+                active_indexes = [idx.name for idx in listed] if listed else []
+            except Exception:
+                active_indexes = []
+
+            if index_name in active_indexes:
+                return index_name
+
+            # If active indexes exist and requested index isn't present, check if default index exists
+            if active_indexes and index_name != settings.PINECONE_INDEX_NAME and settings.PINECONE_INDEX_NAME in active_indexes:
+                logger.info(f"Requested index '{index_name}' not found. Using active system index '{settings.PINECONE_INDEX_NAME}'.")
+                return settings.PINECONE_INDEX_NAME
+
+            # Attempt auto-creation if no index found
+            if not active_indexes or (index_name not in active_indexes):
                 import time
                 logger.info(f"Index '{index_name}' does not exist in account. Automatically creating serverless index...")
-                client.create_index(
-                    name=index_name,
-                    dimension=settings.EMBEDDING_DIMENSION,
-                    metric="cosine",
-                    spec=ServerlessSpec(
-                        cloud=settings.PINECONE_CLOUD,
-                        region=settings.PINECONE_ENVIRONMENT
+                try:
+                    client.create_index(
+                        name=index_name,
+                        dimension=settings.EMBEDDING_DIMENSION,
+                        metric="cosine",
+                        spec=ServerlessSpec(
+                            cloud=settings.PINECONE_CLOUD,
+                            region=settings.PINECONE_ENVIRONMENT
+                        )
                     )
-                )
-                logger.info(f"Created Pinecone index '{index_name}' successfully. Waiting for index initialization...")
-                time.sleep(2)
+                    logger.info(f"Created Pinecone index '{index_name}' successfully. Waiting for index initialization...")
+                    time.sleep(2)
+                    return index_name
+                except Exception as create_err:
+                    logger.warning(f"Index existence check note: {create_err}")
+                    if active_indexes:
+                        fallback_idx = settings.PINECONE_INDEX_NAME if settings.PINECONE_INDEX_NAME in active_indexes else active_indexes[0]
+                        logger.info(f"Falling back to existing active Pinecone index '{fallback_idx}'.")
+                        return fallback_idx
+                    return index_name
+            return index_name
         except Exception as e:
             logger.warning(f"Index existence check note: {e}")
+            return index_name
 
     def _handle_pinecone_error(self, e: Exception):
         err_msg = str(e)
