@@ -4,6 +4,8 @@ import time
 from pathlib import Path
 import streamlit as st
 
+import base64
+
 # Configure page layout & metadata
 st.set_page_config(
     page_title="DocuMind Multi-User RAG",
@@ -11,6 +13,54 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="collapsed"
 )
+
+# Inject PWA Web App Manifest & Service Worker for PWABuilder Store Packaging
+_pwa_manifest = """{
+  "name": "DocuMind AI Multi-Tenant RAG",
+  "short_name": "DocuMind",
+  "description": "Enterprise Multi-Tenant RAG with Isolated Vector Workspaces",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f19",
+  "theme_color": "#0b0f19",
+  "icons": [
+    {
+      "src": "https://em-content.zobj.net/source/apple/391/brain_1f9e0.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://em-content.zobj.net/source/apple/391/brain_1f9e0.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}"""
+_manifest_b64 = base64.b64encode(_pwa_manifest.encode("utf-8")).decode("utf-8")
+
+st.markdown(f"""
+<link rel="manifest" href="data:application/manifest+json;base64,{_manifest_b64}">
+<meta name="theme-color" content="#0b0f19">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<script>
+    if ('serviceWorker' in navigator) {{
+        window.addEventListener('load', function() {{
+            const swCode = `
+                self.addEventListener('install', (e) => self.skipWaiting());
+                self.addEventListener('activate', (e) => e.waitUntil(clients.claim()));
+                self.addEventListener('fetch', (e) => e.respondWith(fetch(e.request)));
+            `;
+            const blob = new Blob([swCode], {{ type: 'text/javascript' }});
+            const url = URL.createObjectURL(blob);
+            navigator.serviceWorker.register(url).catch(err => console.log('SW reg error:', err));
+        }});
+    }}
+</script>
+""", unsafe_allow_html=True)
 
 
 # Load secrets from Streamlit Cloud into environment if available
