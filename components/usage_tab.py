@@ -18,6 +18,8 @@ def render_usage_tab(user: dict):
         creds = CredentialService.get_credentials(user_id=user_id, db=db)
         allowance = CredentialService.check_upload_allowance(user_id=user_id, db=db)
 
+    is_byok = creds.get("is_byok", False) or allowance.get("is_unlimited", False)
+
     # Fetch live Pinecone vector count directly from cloud index
     vec_service = VectorService()
     pinecone_stats = vec_service.get_namespace_stats(
