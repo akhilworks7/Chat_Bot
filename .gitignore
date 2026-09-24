@@ -228,3 +228,19 @@ data/
 output/
 chat_bot/
 
+# Android Build Artifacts & Keystore Secrets
+*.keystore
+*.aab
+*.apk
+*.idsig
+.gradle/
+gradle/
+gradlew
+gradlew.bat
+app/build.gradle
+app/src/
+build.gradle
+gradle.properties
+settings.gradle
+manifest-checksum.txt
+
