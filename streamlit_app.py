@@ -6,6 +6,8 @@ import streamlit as st
 
 import base64
 
+import json
+
 # Configure page layout & metadata
 st.set_page_config(
     page_title="DocuMind Multi-User RAG",
@@ -14,30 +16,39 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Inject PWA Web App Manifest & Service Worker for PWABuilder Store Packaging
-_pwa_manifest = """{
-  "name": "DocuMind AI Multi-Tenant RAG",
-  "short_name": "DocuMind",
-  "description": "Enterprise Multi-Tenant RAG with Isolated Vector Workspaces",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#0b0f19",
-  "theme_color": "#0b0f19",
-  "icons": [
-    {
-      "src": "https://img.icons8.com/color/512/brain.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "https://img.icons8.com/color/192/brain.png",
-      "sizes": "192x192",
-      "type": "image/png",
-      "purpose": "any"
+# Automatically patch Streamlit's static manifest.json file on app startup for PWABuilder & PWA compliance
+try:
+    _static_manifest_file = os.path.join(os.path.dirname(st.__file__), "static", "manifest.json")
+    _manifest_data = {
+        "short_name": "DocuMind",
+        "name": "DocuMind AI Multi-Tenant RAG",
+        "description": "Enterprise Multi-Tenant RAG with Isolated Vector Workspaces",
+        "icons": [
+            {
+                "src": "https://img.icons8.com/color/512/brain.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any maskable"
+            },
+            {
+                "src": "https://img.icons8.com/color/192/brain.png",
+                "sizes": "192x192",
+                "type": "image/png",
+                "purpose": "any"
+            }
+        ],
+        "start_url": "/",
+        "display": "standalone",
+        "theme_color": "#0b0f19",
+        "background_color": "#0b0f19"
     }
-  ]
-}"""
+    with open(_static_manifest_file, "w", encoding="utf-8") as _f:
+        json.dump(_manifest_data, _f, indent=2)
+except Exception:
+    pass
+
+# Inject PWA Web App Manifest & Service Worker for PWABuilder Store Packaging
+_pwa_manifest = json.dumps(_manifest_data)
 _manifest_b64 = base64.b64encode(_pwa_manifest.encode("utf-8")).decode("utf-8")
 
 st.markdown(f"""
