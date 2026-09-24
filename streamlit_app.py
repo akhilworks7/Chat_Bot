@@ -25,13 +25,13 @@ _pwa_manifest = """{
   "theme_color": "#0b0f19",
   "icons": [
     {
-      "src": "https://em-content.zobj.net/source/apple/391/brain_1f9e0.png",
+      "src": "https://img.icons8.com/color/512/brain.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://em-content.zobj.net/source/apple/391/brain_1f9e0.png",
+      "src": "https://img.icons8.com/color/192/brain.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
