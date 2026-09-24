@@ -16,22 +16,37 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Automatically patch Streamlit's static manifest.json file on app startup for PWABuilder & PWA compliance
+# Automatically patch Streamlit's static manifest.json & icon files on app startup for PWABuilder & PWA compliance
 try:
-    _static_manifest_file = os.path.join(os.path.dirname(st.__file__), "static", "manifest.json")
+    import urllib.request
+    _static_dir = os.path.join(os.path.dirname(st.__file__), "static")
+    _fav_512 = os.path.join(_static_dir, "favicon_512.png")
+    _fav_192 = os.path.join(_static_dir, "favicon_192.png")
+    if not os.path.exists(_fav_512) or os.path.getsize(_fav_512) < 1000:
+        urllib.request.urlretrieve("https://img.icons8.com/color/512/brain.png", _fav_512)
+    if not os.path.exists(_fav_192) or os.path.getsize(_fav_192) < 1000:
+        urllib.request.urlretrieve("https://img.icons8.com/color/192/brain.png", _fav_192)
+
+    _static_manifest_file = os.path.join(_static_dir, "manifest.json")
     _manifest_data = {
         "short_name": "DocuMind",
         "name": "DocuMind AI Multi-Tenant RAG",
         "description": "Enterprise Multi-Tenant RAG with Isolated Vector Workspaces",
         "icons": [
             {
-                "src": "https://img.icons8.com/color/512/brain.png",
+                "src": "favicon_512.png",
                 "sizes": "512x512",
                 "type": "image/png",
                 "purpose": "any maskable"
             },
             {
-                "src": "https://img.icons8.com/color/192/brain.png",
+                "src": "https://img.icons8.com/color/512/brain.png",
+                "sizes": "512x512",
+                "type": "image/png",
+                "purpose": "any"
+            },
+            {
+                "src": "favicon_192.png",
                 "sizes": "192x192",
                 "type": "image/png",
                 "purpose": "any"
