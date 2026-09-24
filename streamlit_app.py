@@ -16,6 +16,36 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
+_manifest_data = {
+    "short_name": "DocuMind",
+    "name": "DocuMind AI Multi-Tenant RAG",
+    "description": "Enterprise Multi-Tenant RAG with Isolated Vector Workspaces",
+    "icons": [
+        {
+            "src": "favicon_512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "https://img.icons8.com/color/512/brain.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any"
+        },
+        {
+            "src": "favicon_192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any"
+        }
+    ],
+    "start_url": "/",
+    "display": "standalone",
+    "theme_color": "#0b0f19",
+    "background_color": "#0b0f19"
+}
+
 # Automatically patch Streamlit's static manifest.json & icon files on app startup for PWABuilder & PWA compliance
 try:
     import urllib.request
@@ -28,35 +58,6 @@ try:
         urllib.request.urlretrieve("https://img.icons8.com/color/192/brain.png", _fav_192)
 
     _static_manifest_file = os.path.join(_static_dir, "manifest.json")
-    _manifest_data = {
-        "short_name": "DocuMind",
-        "name": "DocuMind AI Multi-Tenant RAG",
-        "description": "Enterprise Multi-Tenant RAG with Isolated Vector Workspaces",
-        "icons": [
-            {
-                "src": "favicon_512.png",
-                "sizes": "512x512",
-                "type": "image/png",
-                "purpose": "any maskable"
-            },
-            {
-                "src": "https://img.icons8.com/color/512/brain.png",
-                "sizes": "512x512",
-                "type": "image/png",
-                "purpose": "any"
-            },
-            {
-                "src": "favicon_192.png",
-                "sizes": "192x192",
-                "type": "image/png",
-                "purpose": "any"
-            }
-        ],
-        "start_url": "/",
-        "display": "standalone",
-        "theme_color": "#0b0f19",
-        "background_color": "#0b0f19"
-    }
     with open(_static_manifest_file, "w", encoding="utf-8") as _f:
         json.dump(_manifest_data, _f, indent=2)
 except Exception:
